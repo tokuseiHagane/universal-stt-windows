@@ -24,6 +24,11 @@ fn main() {
                     .with_min_inner_size(LogicalSize::new(1024.0, 700.0)),
             )
             .with_background_color((18, 20, 24, 255));
+        // Diagnostic escape hatch: Wine/WebView2 experiments need Chromium flags.
+        let config = match std::env::var("USTT_WEBVIEW_ARGS") {
+            Ok(extra) if !extra.trim().is_empty() => config.with_windows_browser_args(extra),
+            _ => config,
+        };
         dioxus::LaunchBuilder::desktop()
             .with_cfg(config)
             .launch(app::App);
