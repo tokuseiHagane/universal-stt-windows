@@ -28,7 +28,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: vendor/win64
-          key: win64-${{ hashFiles('models/manifest.json') }}
+          key: win64-${{ hashFiles('models/manifest.json', 'scripts/fetch-win-deps.py') }}
       - name: Fetch Windows dependencies and models
         run: python scripts/fetch-win-deps.py --dest vendor/win64
       - name: Package portable ZIP

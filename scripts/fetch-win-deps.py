@@ -28,6 +28,12 @@ WEBVIEW2 = "https://go.microsoft.com/fwlink/p/?LinkId=2124701"
 WEBVIEW2_NAME = "MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
 VCREDIST = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
 VCREDIST_NAME = "VC_redist.x64.exe"
+WEBVIEW2_SDK = "1.0.4314.35"
+WEBVIEW2_NUGET = (
+    "https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/"
+    f"{WEBVIEW2_SDK}/microsoft.web.webview2.{WEBVIEW2_SDK}.nupkg"
+)
+WEBVIEW2_LOADER = "WebView2Loader.dll"
 WHO_REV = "097d29a140dd19e220cff132e455e515d0e47e59"
 ASR_REV = "c77726e46ceaab96b5a5a3328915edb44c73209d"
 
@@ -66,6 +72,9 @@ def extract_zip(archive: Path, dest: Path) -> None:
 
 def install_parakeet(dest: Path, work: Path) -> None:
     for canonical, url in PARAKEET_ASSETS.items():
+        if (dest / canonical).is_file():
+            print(f"present: {canonical}")
+            continue
         archive = work / Path(url).name
         download(url, archive)
         extract = work / f"extract-{canonical}"
@@ -77,6 +86,9 @@ def install_parakeet(dest: Path, work: Path) -> None:
 
 
 def install_ort(dest: Path, work: Path) -> None:
+    if (dest / "onnxruntime.dll").is_file():
+        print("present: onnxruntime.dll")
+        return
     archive = work / "onnxruntime.zip"
     download(ORT, archive)
     extract = work / "ort"
@@ -88,6 +100,10 @@ def install_ort(dest: Path, work: Path) -> None:
 
 
 def install_ffmpeg(dest: Path, work: Path) -> None:
+    if (dest / "ffmpeg.exe").is_file() and (dest / "ffprobe.exe").is_file():
+        if any(dest.glob("swscale-*.dll")):
+            print("present: ffmpeg")
+            return
     archive = work / "ffmpeg.zip"
     download(FFMPEG, archive)
     if sha256(archive) != FFMPEG_SHA256:
@@ -108,12 +124,28 @@ def install_ffmpeg(dest: Path, work: Path) -> None:
 
 
 def install_webview2(dest: Path, work: Path) -> None:
-    download(WEBVIEW2, work / "webview2.exe")
-    if (work / "webview2.exe").stat().st_size < 100_000_000:
-        raise SystemExit("WebView2 download is too small; expected the offline installer")
-    shutil.copy2(work / "webview2.exe", dest / WEBVIEW2_NAME)
-    download(VCREDIST, work / "vc_redist.exe")
-    shutil.copy2(work / "vc_redist.exe", dest / VCREDIST_NAME)
+    installer = dest / WEBVIEW2_NAME
+    if installer.is_file() and installer.stat().st_size > 100_000_000:
+        print(f"present: {WEBVIEW2_NAME}")
+    else:
+        download(WEBVIEW2, work / "webview2.exe")
+    if not installer.is_file() or installer.stat().st_size <= 100_000_000:
+        if (work / "webview2.exe").stat().st_size < 100_000_000:
+            raise SystemExit("WebView2 download is too small; expected the offline installer")
+        shutil.copy2(work / "webview2.exe", installer)
+    vc = dest / VCREDIST_NAME
+    if not vc.is_file() or vc.stat().st_size < 20_000_000:
+        download(VCREDIST, work / "vc_redist.exe")
+        shutil.copy2(work / "vc_redist.exe", vc)
+    if not (dest / WEBVIEW2_LOADER).is_file():
+        package = work / "webview2.nupkg"
+        download(WEBVIEW2_NUGET, package)
+        extract = work / "webview2-sdk"
+        extract_zip(package, extract)
+        loader = extract / "build" / "native" / "x64" / WEBVIEW2_LOADER
+        if not loader.is_file():
+            raise SystemExit(f"{WEBVIEW2_LOADER} not found in the WebView2 SDK package")
+        shutil.copy2(loader, dest / WEBVIEW2_LOADER)
 
 
 def model_url(name: str) -> str:
@@ -142,6 +174,7 @@ REQUIRED = [
     "ffprobe.exe",
     WEBVIEW2_NAME,
     VCREDIST_NAME,
+    WEBVIEW2_LOADER,
 ]
 
 
@@ -210,7 +243,9 @@ def main() -> int:
         install_models(dest, args.manifest)
     problems = validate_layout(dest, None if args.skip_models else args.manifest)
     if args.skip_webview2:
-        problems = [p for p in problems if p not in (WEBVIEW2_NAME, VCREDIST_NAME)]
+        problems = [
+            p for p in problems if p not in (WEBVIEW2_NAME, VCREDIST_NAME, WEBVIEW2_LOADER)
+        ]
     if problems:
         print("layout problems:", ", ".join(problems), file=sys.stderr)
         return 1

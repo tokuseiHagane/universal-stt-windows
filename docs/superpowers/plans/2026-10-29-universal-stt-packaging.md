@@ -249,7 +249,7 @@ git commit -m "docs: windows packaging and manual build"
 ### Task 7: Final verification
 
 - [ ] Run `python3 -m pytest scripts/tests -q`
-- [ ] Run `python3 scripts/package_release.py --self-test`
+- [ ] Run `python3 scripts/package_release.py --self-test --root /tmp/ustt-pkg-self-test`
 - [ ] Run `cargo test --workspace` with `LIBRARY_PATH=/tmp/opencode/xdo`
 - [ ] Run `npm test`
 - [ ] Validate both workflow YAMLs

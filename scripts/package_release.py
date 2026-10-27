@@ -21,6 +21,7 @@ REQUIRED = [
     "ffprobe.exe",
     "MicrosoftEdgeWebView2RuntimeInstallerX64.exe",
     "VC_redist.x64.exe",
+    "WebView2Loader.dll",
 ]
 STORED_SUFFIXES = {".gguf", ".onnx", ".f16", ".f32"}
 ZIP64_LIMIT = 0xFFFFFFFF
@@ -51,6 +52,9 @@ def validate_layout(root: Path, manifest: Path | None) -> list[str]:
         problems.append("unexpected parakeet.dll (expected parakeet_cpu.dll/parakeet_vulkan.dll)")
     if not any(root.glob("avcodec-*.dll")):
         problems.append("avcodec-*.dll")
+    for pattern in ("swscale-*.dll", "swresample-*.dll"):
+        if not any(root.glob(pattern)):
+            problems.append(pattern)
     if manifest is not None and manifest.is_file():
         for entry in json.loads(manifest.read_text())["files"]:
             path = root / "models" / entry["name"]
@@ -78,6 +82,7 @@ def build_zip(
         stage.mkdir()
         allowed = list(REQUIRED) + ["parakeet.dll"]
         allowed += [p.name for p in deps.glob("av*.dll")]
+        allowed += [p.name for p in deps.glob("sw*.dll")]
         for name in allowed:
             source = deps / name
             if source.is_file():
@@ -125,6 +130,8 @@ def make_fixture(root: Path) -> tuple[Path, Path, Path]:
     for name in REQUIRED:
         (deps / name).write_bytes(b"fixture")
     (deps / "avcodec-62.dll").write_bytes(b"fixture")
+    (deps / "swscale-9.dll").write_bytes(b"fixture")
+    (deps / "swresample-6.dll").write_bytes(b"fixture")
     files = []
     for name in ("redux-packed.gguf", "silero-vad-f16.gguf", "who/who_meta.json"):
         path = deps / "models" / name

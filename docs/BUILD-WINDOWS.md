@@ -52,10 +52,14 @@ dist/SHA256SUMS
 ```
 
 The ZIP root contains `UniversalSTT.exe`, the DLLs, `ffmpeg.exe`,
-`models/`, `MicrosoftEdgeWebView2RuntimeInstallerX64.exe`, `LICENSE`,
+`models/`, `MicrosoftEdgeWebView2RuntimeInstallerX64.exe`, `VC_redist.x64.exe`,
+`WebView2Loader.dll`, `LICENSE`,
 `NOTICE`, `README.md`, `version.txt` and `models/manifest.json`.
 
-Expected size: roughly 1.1–1.5 GB depending on the FFmpeg/WebView2 builds.
+The release tag must match the `ustt-app` version in `Cargo.toml`; the CI
+workflow fails otherwise.
+
+Expected size: roughly 1.3–1.7 GB depending on the FFmpeg/WebView2 builds.
 Models are stored without compression; the executable and DLLs are deflated.
 
 ## Verify
