@@ -40,3 +40,8 @@ tests/fixtures/two_speakers.wav is assembled by scripts/fetch-fixtures.sh from:
   - JFK sample, whisper.cpp (public domain)
   - LJSpeech LJ001-0001 (public domain), via the Coqui TTS test data
   - LibriSpeech is CC-BY-4.0 and is not included in this fixture.
+
+Noto Sans
+  License: SIL Open Font License 1.1
+  https://github.com/notofonts/noto-fonts
+  Embedded in the PDF exporter (crates/export/assets/NotoSans-Regular.ttf).
