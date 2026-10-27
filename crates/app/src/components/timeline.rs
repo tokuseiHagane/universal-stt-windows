@@ -44,7 +44,7 @@ pub fn Timeline(props: TimelineProps) -> Element {
     let text = strings(props.lang);
     let duration = props.project.duration.max(0.001);
 
-    let scene = {
+    let scene = use_memo(move || {
         let layout = layout();
         let width = width();
         let peaks = canvas_peaks(&props.wave.peaks, width.max(1.0) as usize);
@@ -78,10 +78,16 @@ pub fn Timeline(props: TimelineProps) -> Element {
             "barWidth": 1.5,
         })
         .to_string()
-    };
+    });
 
     use_effect(move || {
-        let scene = scene.clone();
+        let duration = props.project.duration.max(0.001);
+        let w = width();
+        layout.set(TimelineLayout::new(w / duration, w, duration));
+    });
+
+    use_effect(move || {
+        let scene = scene();
         let code = format!(
             "window.usttTimeline && window.usttTimeline.draw(document.getElementById('timeline'), {scene});"
         );
@@ -102,9 +108,6 @@ pub fn Timeline(props: TimelineProps) -> Element {
     });
 
     let seek_abs = move |seconds: f64| {
-        let mut player = playback;
-        player.write().seek(seconds);
-        player::seek(seconds);
         props.on_seek.call(seconds);
     };
 

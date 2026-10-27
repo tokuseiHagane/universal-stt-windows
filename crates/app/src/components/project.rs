@@ -40,6 +40,19 @@ impl ProjectSession {
         self.saved_at = Some(Utc::now());
         Ok(())
     }
+
+    pub fn snapshot_for_save(&self) -> Option<(StoreHandle, Project)> {
+        self.history
+            .is_dirty()
+            .then(|| (self.store.clone(), self.history.current().clone()))
+    }
+
+    pub fn mark_saved_if(&mut self, saved: &Project) {
+        if self.history.current() == saved {
+            self.history.mark_saved();
+            self.saved_at = Some(Utc::now());
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,14 +92,20 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
     let session = use_context::<Signal<Option<ProjectSession>>>();
     let playback = use_context::<Signal<Playback>>();
     let text = strings(props.lang);
-
-    let Some(project) = session.read().as_ref().map(|s| s.history.current().clone()) else {
-        return rsx! { section { class: "placeholder", "{text.project_missing}" } };
-    };
-
+    let project = session.read().as_ref().map(|s| s.history.current().clone());
+    let recent_signal = use_context::<Signal<Vec<ustt_core::RecentEntry>>>();
     let selected_speaker = use_signal(|| None::<uuid::Uuid>);
     let mut project_error = use_signal(|| None::<String>);
     use_effect(move || player::bind(playback));
+    use_drop(|| {
+        spawn(async move {
+            let _ =
+                document::eval("window.__usttBridgeGen = (window.__usttBridgeGen || 0) + 1;").await;
+        });
+    });
+    let Some(project) = project else {
+        return rsx! { section { class: "placeholder", "{text.project_missing}" } };
+    };
 
     let rename = {
         move |(id, name): (uuid::Uuid, String)| {
@@ -111,8 +130,14 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
     let seek = {
         move |seconds: f64| {
             let mut state = playback;
-            state.write().seek(seconds);
-            player::seek(seconds);
+            let duration = state.read().duration;
+            let clamped = if duration > 0.0 {
+                seconds.clamp(0.0, duration)
+            } else {
+                seconds
+            };
+            state.write().seek(clamped);
+            player::seek(clamped);
         }
     };
 
@@ -120,8 +145,11 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
         let service = service.clone();
         move |_| {
             let mut session = session;
-            if let Some(state) = session.write().as_mut() {
-                let _ = state.save(service.as_ref());
+            let mut project_error = project_error;
+            if let Some(state) = session.write().as_mut()
+                && let Err(message) = state.save(service.as_ref())
+            {
+                project_error.set(Some(message));
             }
         }
     };
@@ -138,9 +166,12 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
                 let mut copy = state.history.current().clone();
                 match service.save_as(&state.store, &mut copy, target) {
                     Ok(store) => {
+                        let _ = service.open(&store.dir);
                         state.audio_url = service.media_url(&store, MediaAsset::Audio);
                         state.proxy_url = service.media_url(&store, MediaAsset::Proxy);
                         state.wave = service.waveform(&store).unwrap_or_default();
+                        state.history.mark_saved();
+                        state.saved_at = Some(Utc::now());
                         state.store = store;
                     }
                     Err(message) => project_error.set(Some(message)),
@@ -156,8 +187,11 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
             if path.as_os_str().is_empty() {
                 return;
             }
-            if let Some(state) = session.write().as_mut() {
-                let _ = state.save(service.as_ref());
+            let mut project_error_signal = project_error;
+            if let Some(state) = session.write().as_mut()
+                && let Err(message) = state.save(service.as_ref())
+            {
+                project_error_signal.set(Some(message));
             }
             match service.open(&path) {
                 Ok((store, project)) => {
@@ -182,7 +216,7 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
         }
     };
 
-    let recent = service.recent();
+    let recent = recent_signal();
     let dirty = session
         .read()
         .as_ref()

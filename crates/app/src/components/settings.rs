@@ -5,6 +5,21 @@ use std::sync::Arc;
 use ustt_core::{BackendPreference, Settings};
 use ustt_ui_model::{Lang, strings};
 
+fn backend_hint() -> String {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let detection = ustt_pipeline::backend::detect(BackendPreference::Auto);
+        match detection.gpu_name {
+            Some(gpu) => format!("{:?} · {gpu}", detection.selected),
+            None => format!("{:?}", detection.selected),
+        }
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        "CPU".to_string()
+    }
+}
+
 pub fn load_project_error(path: &Path) -> String {
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -118,6 +133,16 @@ pub fn SettingsScreen(props: SettingsProps) -> Element {
                             draft.set(next);
                         },
                     }
+                    label { "{text.ffmpeg_dir}" }
+                    input {
+                        value: "{draft.read().ffmpeg_dir.as_ref().map(|p| p.display().to_string()).unwrap_or_default()}",
+                        onchange: move |evt| {
+                            let mut next = draft();
+                            let value = evt.value();
+                            next.ffmpeg_dir = (!value.is_empty()).then(|| value.into());
+                            draft.set(next);
+                        },
+                    }
                     label { "{text.models_dir}" }
                     input {
                         value: "{draft.read().models_dir.as_ref().map(|p| p.display().to_string()).unwrap_or_default()}",
@@ -130,6 +155,8 @@ pub fn SettingsScreen(props: SettingsProps) -> Element {
                     }
                     label { "" }
                     span { class: "meta", if models_ok { "{text.models_ok}" } else { "{text.models_missing}" } }
+                    label { "" }
+                    span { class: "meta", "data-testid": "backend-hint", "{backend_hint()}" }
                 }
                 div { class: "modal-actions",
                     button { class: "btn ghost", onclick: move |_| props.on_close.call(()), "{text.cancel}" }

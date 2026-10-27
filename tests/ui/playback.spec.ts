@@ -23,6 +23,13 @@ test("clicking the timeline seeks to the clicked position", async ({ page }) => 
   await expect
     .poll(() => page.evaluate(() => document.getElementById("player")?.currentTime ?? -1))
     .toBeGreaterThan(1.1);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        parseFloat(getComputedStyle(document.getElementById("playhead")!).left),
+      ),
+    )
+    .toBeGreaterThan(10);
 });
 
 test("video demo splits transcript and preview", async ({ page }) => {

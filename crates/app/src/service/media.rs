@@ -99,18 +99,30 @@ pub fn respond(
     let Some((path, mime)) = shared().lock().unwrap().resolve(uri) else {
         return empty(StatusCode::NOT_FOUND);
     };
-    let Ok(bytes) = std::fs::read(&path) else {
+    let Ok(metadata) = std::fs::metadata(&path) else {
         return empty(StatusCode::NOT_FOUND);
     };
-    let total = bytes.len();
+    let total = metadata.len() as usize;
     let (status, start, end) = match range.and_then(|value| parse_range(value, total)) {
         Some((start, end)) => (StatusCode::PARTIAL_CONTENT, start, end),
         None => (StatusCode::OK, 0, total.saturating_sub(1)),
     };
-    let body = if total == 0 {
+    let length = if total == 0 { 0 } else { end - start + 1 };
+    let body = if total == 0 || method.eq_ignore_ascii_case("HEAD") {
         Vec::new()
     } else {
-        bytes[start..=end].to_vec()
+        use std::io::{Read, Seek, SeekFrom};
+        let Ok(mut file) = std::fs::File::open(&path) else {
+            return empty(StatusCode::NOT_FOUND);
+        };
+        if file.seek(SeekFrom::Start(start as u64)).is_err() {
+            return empty(StatusCode::NOT_FOUND);
+        }
+        let mut body = vec![0u8; end - start + 1];
+        if file.read_exact(&mut body).is_err() {
+            return empty(StatusCode::NOT_FOUND);
+        }
+        body
     };
     let mut builder = Response::builder()
         .status(status)
@@ -118,7 +130,7 @@ pub fn respond(
         .header("Accept-Ranges", "bytes")
         .header("Cache-Control", "no-store")
         .header("Access-Control-Allow-Origin", "*")
-        .header("Content-Length", body.len().to_string());
+        .header("Content-Length", length.to_string());
     if status == StatusCode::PARTIAL_CONTENT {
         builder = builder.header("Content-Range", format!("bytes {start}-{end}/{total}"));
     }

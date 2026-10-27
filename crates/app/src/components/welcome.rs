@@ -37,7 +37,7 @@ pub struct WelcomeProps {
 pub fn Welcome(props: WelcomeProps) -> Element {
     let service = use_context::<Arc<dyn Service>>();
     let text = strings(props.lang);
-    let recent = service.recent();
+    let recent = use_context::<Signal<Vec<ustt_core::RecentEntry>>>()();
     let mut dragging = use_signal(|| false);
 
     let start = move |path: PathBuf| {

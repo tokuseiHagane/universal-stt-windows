@@ -41,6 +41,8 @@ pub fn App() -> Element {
     let mut error = use_signal(|| None::<String>);
     let mut settings = use_signal(|| service.settings());
     let mut settings_open = use_signal(|| false);
+    let mut recent = use_signal(|| service.recent());
+    use_context_provider(|| recent);
     let mut processing_error = use_signal(|| None::<String>);
     let mut session = use_signal(|| None::<ProjectSession>);
     let playback = use_signal(Playback::default);
@@ -71,15 +73,27 @@ pub fn App() -> Element {
                                 project.kind,
                             ));
                             match service.open(&dir) {
-                                Ok(_) => screen.set(Screen::Project),
-                                Err(message) => error.set(Some(message)),
+                                Ok((store, project)) => {
+                                    let mut player = playback;
+                                    player.write().set_duration(project.duration);
+                                    session.set(Some(ProjectSession::new(
+                                        store,
+                                        project,
+                                        service.as_ref(),
+                                    )));
+                                    screen.set(Screen::Project);
+                                }
+                                Err(_) => error.set(Some(load_project_error(&dir))),
                             }
+                            recent.set(service.recent());
                         }
                         pending.set(None);
                         progress.set(None);
                     }
                     Some(ImportEvent::Failed(message)) => {
-                        error.set(Some(message.clone()));
+                        pending.set(None);
+                        progress.set(None);
+                        processing_error.set(Some(message));
                     }
                     Some(ImportEvent::Cancelled) => {
                         pending.set(None);
@@ -100,10 +114,20 @@ pub fn App() -> Element {
                 loop {
                     let secs = service.settings().autosave_secs.clamp(1, 3600) as u64;
                     futures_timer::Delay::new(std::time::Duration::from_secs(secs)).await;
-                    if let Some(state) = session.write().as_mut()
-                        && state.history.is_dirty()
-                    {
-                        let _ = state.save(service.as_ref());
+                    let snapshot = {
+                        let guard = session.read();
+                        guard.as_ref().and_then(|state| state.snapshot_for_save())
+                    };
+                    if let Some((store, snapshot)) = snapshot {
+                        let mut to_save = snapshot.clone();
+                        match service.save(&store, &mut to_save) {
+                            Ok(()) => {
+                                if let Some(state) = session.write().as_mut() {
+                                    state.mark_saved_if(&snapshot);
+                                }
+                            }
+                            Err(message) => error.set(Some(message)),
+                        }
                     }
                 }
             }
@@ -142,8 +166,9 @@ pub fn App() -> Element {
                     (true, "s") | (true, "S") => {
                         if let Some(state) = session.write().as_mut()
                             && state.history.is_dirty()
+                            && let Err(message) = state.save(service.as_ref())
                         {
-                            let _ = state.save(service.as_ref());
+                            error.set(Some(message));
                         }
                     }
                     (true, "z") | (true, "Z") => {
@@ -208,6 +233,7 @@ pub fn App() -> Element {
     rsx! {
         document::Title { "{text.app_name}" }
         document::Link { rel: "stylesheet", href: MAIN_CSS }
+        document::Script { src: "/timeline.js" }
         div { class: "app",
             header { class: "topbar",
                 div { class: "brand",

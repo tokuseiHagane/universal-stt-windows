@@ -37,7 +37,11 @@ window.usttTimeline = {
   },
   setPlayhead(id, fraction) {
     const el = document.getElementById(id);
-    if (el) el.style.transform = `translateX(${Math.max(0, Math.min(1, fraction)) * 100}%)`;
+    if (el) el.style.left = `${Math.max(0, Math.min(1, fraction)) * 100}%`;
+  },
+  scrollToOffset(selector, top) {
+    const el = document.querySelector(selector);
+    if (el) el.scrollTop = top;
   },
   scrollToRow(id) {
     const el = document.getElementById(id);

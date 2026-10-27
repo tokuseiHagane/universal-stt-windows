@@ -20,10 +20,11 @@ pub fn Transcript(props: TranscriptProps) -> Element {
     let mut viewport = use_signal(|| 520.0f64);
     let mut autoscroll = use_signal(|| true);
     let mut editing = use_signal(|| None::<Uuid>);
+    let mut abort_edit = use_signal(|| false);
     let mut draft = use_signal(String::new);
 
     let position = playback.read().position;
-    let playing = playback.read().playing;
+
     let active = active_segment(&props.project, position);
     let rows = virtual_rows(
         scroll_top(),
@@ -32,13 +33,17 @@ pub fn Transcript(props: TranscriptProps) -> Element {
         props.project.segments.len(),
     );
 
+    let project_for_scroll = props.project.clone();
     use_effect(move || {
+        let state = *playback.read();
+        let active = active_segment(&project_for_scroll, state.position);
         if autoscroll()
-            && playing
+            && state.playing
             && let Some(index) = active
         {
+            let top = (index as f64 * ROW_HEIGHT - viewport() / 2.0).max(0.0);
             let code = format!(
-                "window.usttTimeline && window.usttTimeline.scrollToRow('segment-{index}');"
+                "window.usttTimeline && window.usttTimeline.scrollToOffset('.transcript-scroll', {top});"
             );
             spawn(async move {
                 let _ = document::eval(&code).await;
@@ -60,7 +65,7 @@ pub fn Transcript(props: TranscriptProps) -> Element {
             } else {
                 1.0
             };
-            let top = index as f64 * ROW_HEIGHT + rows.offset_px;
+            let top = index as f64 * ROW_HEIGHT;
             Some((index, segment, color, dim, active == Some(index), top))
         })
         .collect();
@@ -124,8 +129,10 @@ pub fn Transcript(props: TranscriptProps) -> Element {
                                             oninput: move |evt| draft.set(evt.value()),
                                             onclick: move |evt| evt.stop_propagation(),
                                             onblur: move |_| {
-                                                let value = draft();
-                                                props.on_edit.call((segment_id, value));
+                                                if !abort_edit() {
+                                                    let value = draft();
+                                                    props.on_edit.call((segment_id, value));
+                                                }
                                                 editing.set(None);
                                             },
                                             onkeydown: move |evt| {
@@ -136,6 +143,7 @@ pub fn Transcript(props: TranscriptProps) -> Element {
                                                     editing.set(None);
                                                 }
                                                 if evt.key() == Key::Escape {
+                                                    abort_edit.set(true);
                                                     editing.set(None);
                                                 }
                                             },

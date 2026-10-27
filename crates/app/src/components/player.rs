@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use serde::Deserialize;
 use ustt_ui_model::Playback;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct PlayerTick {
     pub position: f64,
     #[serde(default)]
@@ -34,7 +34,7 @@ const BRIDGE: &str = r#"
         muted: media.muted,
       });
     }
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 80));
   }
 })();
 "#;
@@ -43,7 +43,12 @@ pub fn bind(playback: Signal<Playback>) {
     let mut playback = playback;
     spawn(async move {
         let mut eval = document::eval(BRIDGE);
+        let mut last: Option<PlayerTick> = None;
         while let Ok(tick) = eval.recv::<PlayerTick>().await {
+            if last.as_ref() == Some(&tick) {
+                continue;
+            }
+            last = Some(tick.clone());
             let mut state = playback.write();
             state.position = tick.position;
             if tick.duration > 0.0 {
