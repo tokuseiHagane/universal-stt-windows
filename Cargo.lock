@@ -795,6 +795,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ustt-asr"
+version = "0.1.0"
+dependencies = [
+ "libloading",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "ustt-core",
+]
+
+[[package]]
 name = "ustt-core"
 version = "0.1.0"
 dependencies = [
