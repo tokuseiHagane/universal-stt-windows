@@ -146,10 +146,11 @@ def install_webview2(dest: Path, work: Path) -> None:
             extract = work / f"{name}-x"
             extract_zip(package, extract)
             source = extract / "contentFiles" / "any" / "any" / "WebView2"
-            if not source.is_dir() or not (source / "msedgewebview2.exe").is_file():
-                raise SystemExit(f"WebView2 runtime missing msedgewebview2.exe in {name}")
-            runtime.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(source, runtime, dirs_exist_ok=True)
+            if source.is_dir():
+                runtime.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(source, runtime, dirs_exist_ok=True)
+        if not (runtime / "msedgewebview2.exe").is_file():
+            raise SystemExit("WebView2 runtime missing msedgewebview2.exe")
     if not (dest / WEBVIEW2_LOADER).is_file():
         package = work / "webview2.nupkg"
         download(WEBVIEW2_NUGET, package)
