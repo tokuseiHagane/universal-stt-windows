@@ -35,8 +35,23 @@ case "$(uname -s)" in
     fetch_lib "parakeet-v$version-lib-linux-cpu-x64.tar.gz" "libparakeet.so*"
     ;;
   MINGW*|MSYS*|CYGWIN*)
-    fetch_lib "parakeet-v$version-lib-win-cpu-x64.zip" "*.dll"
-    fetch_lib "parakeet-v$version-lib-win-vulkan-x64.zip" "*.dll"
+    # parakeet.cpp ships every backend as parakeet.dll; the app loads
+    # backend-specific canonical names, so rename on the way in.
+    fetch_win() {
+      local asset="$1" canonical="$2"
+      if [ -f "$libdir/$canonical" ]; then
+        echo "present: $canonical"
+        return
+      fi
+      echo "fetching: $asset"
+      curl -L --fail --retry 3 -o "$tmp/$asset" "$base/$asset"
+      rm -rf "$tmp/extract"
+      mkdir -p "$tmp/extract"
+      unzip -q -o "$tmp/$asset" -d "$tmp/extract"
+      find "$tmp/extract" -type f -name "parakeet.dll" -exec cp {} "$libdir/$canonical" \;
+    }
+    fetch_win "parakeet-v$version-lib-win-cpu-x64.zip" "parakeet_cpu.dll"
+    fetch_win "parakeet-v$version-lib-win-vulkan-x64.zip" "parakeet_vulkan.dll"
     ;;
   *)
     echo "unsupported OS for this script: $(uname -s)" >&2
