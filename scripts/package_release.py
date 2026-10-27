@@ -77,6 +77,8 @@ def build_zip(
             if source.is_file():
                 shutil.copy2(source, stage / name)
         (stage / "version.txt").write_text(f"version={version}\n")
+        (stage / "models").mkdir(parents=True, exist_ok=True)
+        shutil.copy2(manifest, stage / "models" / "manifest.json")
         name = f"UniversalSTT-{version}-win64-portable.zip"
         target = out_dir / name
         entries = sorted(p for p in stage.rglob("*") if p.is_file())

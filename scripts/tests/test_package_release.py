@@ -34,6 +34,7 @@ def test_build_zip_layout_and_compression(tmp_path: Path) -> None:
     with zipfile.ZipFile(archive) as zf:
         assert "UniversalSTT.exe" in zf.namelist()
         assert "models/who/who_meta.json" in zf.namelist()
+        assert "models/manifest.json" in zf.namelist()
         assert zf.getinfo("models/redux-packed.gguf").compress_type == zipfile.ZIP_STORED
         assert zf.getinfo("UniversalSTT.exe").compress_type == zipfile.ZIP_DEFLATED
 
