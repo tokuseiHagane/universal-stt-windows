@@ -29,3 +29,8 @@ pub fn RedoIcon() -> Element {
 pub fn SettingsIcon() -> Element {
     rsx! { svg { view_box: "0 0 24 24", width: "18", height: "18", path { d: "M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7zM4 12l-2 1 2 1m16-2 2 1-2 1M12 4l1-2 1 2m-2 16 1 2 1-2", fill: "none", stroke: "currentColor", stroke_width: "1.6", stroke_linecap: "round" } } }
 }
+
+#[component]
+pub fn FolderIcon() -> Element {
+    rsx! { svg { view_box: "0 0 24 24", width: "28", height: "28", path { d: "M3 6h6l2 2h10v10H3z", fill: "none", stroke: "currentColor", stroke_width: "1.5" } } }
+}

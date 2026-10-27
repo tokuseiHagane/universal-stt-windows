@@ -221,3 +221,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .welcome { grid-template-columns: 1fr; overflow: auto; }
   .project-body.video { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) 240px; }
 }
+
+.demo-actions { display: flex; gap: 10px; }
+.drop-icon { color: var(--accent); }

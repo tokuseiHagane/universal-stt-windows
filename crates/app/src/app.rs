@@ -1,5 +1,10 @@
+use crate::components::processing::Processing;
+use crate::components::welcome::Welcome;
+use crate::service::{ImportEvent, ImportHandle};
 use dioxus::prelude::*;
-use ustt_ui_model::{Lang, strings};
+use std::sync::Arc;
+use ustt_core::{MediaKind, RecentEntry};
+use ustt_ui_model::{Lang, ProgressView, strings};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,11 +28,61 @@ const MAIN_CSS: Asset = asset!("/assets/main.css");
 
 #[component]
 pub fn App() -> Element {
-    let _service = use_context_provider(crate::service::open_service);
+    let service = use_context_provider(crate::service::open_service);
     let lang = use_signal(|| Lang::from_system(system_locale().as_deref()));
     let theme = use_signal(|| "dark".to_string());
-    let screen = use_signal(|| Screen::Welcome);
+    let mut screen = use_signal(|| Screen::Welcome);
+    let mut pending = use_signal(|| None::<ImportHandle>);
+    let mut pending_dir = use_signal(|| None::<std::path::PathBuf>);
+    let mut pending_name = use_signal(String::new);
+    let mut progress = use_signal(|| None::<ProgressView>);
+    let mut error = use_signal(|| None::<String>);
+    let mut processing_error = use_signal(|| None::<String>);
+    let worker_service = service.clone();
     let text = strings(lang());
+
+    use_future(move || {
+        let service = worker_service.clone();
+        async move {
+            loop {
+                futures_timer::Delay::new(std::time::Duration::from_millis(80)).await;
+                let event = {
+                    let guard = pending.read();
+                    guard.as_ref().and_then(|handle| handle.rx.try_recv().ok())
+                };
+                match event {
+                    Some(ImportEvent::Progress(next)) => {
+                        progress.set(Some(next));
+                    }
+                    Some(ImportEvent::Finished(project)) => {
+                        if let Some(dir) = pending_dir() {
+                            service.push_recent(RecentEntry::new(
+                                dir.clone(),
+                                project.title.clone(),
+                                project.duration,
+                                project.kind,
+                            ));
+                            match service.open(&dir) {
+                                Ok(_) => screen.set(Screen::Project),
+                                Err(message) => error.set(Some(message)),
+                            }
+                        }
+                        pending.set(None);
+                        progress.set(None);
+                    }
+                    Some(ImportEvent::Failed(message)) => {
+                        error.set(Some(message.clone()));
+                    }
+                    Some(ImportEvent::Cancelled) => {
+                        pending.set(None);
+                        progress.set(None);
+                        screen.set(Screen::Welcome);
+                    }
+                    None => {}
+                }
+            }
+        }
+    });
 
     use_effect(move || {
         let theme = theme();
@@ -54,9 +109,72 @@ pub fn App() -> Element {
                 }
             }
             main { class: "screen", "data-screen": screen().as_str(),
+                if let Some(message) = error() {
+                    div { class: "banner",
+                        span { "{message}" }
+                        button { class: "btn ghost small", onclick: move |_| error.set(None), "{text.dismiss}" }
+                    }
+                }
                 match screen() {
-                    Screen::Welcome => rsx! { section { class: "placeholder", "{text.welcome_title}" } },
-                    Screen::Processing => rsx! { section { class: "placeholder", "{text.processing_title}" } },
+                    Screen::Welcome => rsx! {
+                        Welcome {
+                            lang: lang(),
+                            on_start_import: {
+                                let service = service.clone();
+                                move |(input, dir): (std::path::PathBuf, std::path::PathBuf)| {
+                                pending_name.set(
+                                    input.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+                                );
+                                pending_dir.set(Some(dir.clone()));
+                                progress.set(None);
+                                pending.set(Some(service.import(input, dir)));
+                                screen.set(Screen::Processing);
+                                }
+                            },
+                            on_open_project: {
+                                let service = service.clone();
+                                move |dir: std::path::PathBuf| {
+                                    match service.open(&dir) {
+                                        Ok(_) => screen.set(Screen::Project),
+                                        Err(message) => error.set(Some(message)),
+                                    }
+                                }
+                            },
+                            on_demo: {
+                                let service = service.clone();
+                                move |kind: MediaKind| {
+                                    match service.demo(kind) {
+                                        Some(_) => screen.set(Screen::Project),
+                                        None => error.set(Some(text.error.to_string())),
+                                    }
+                                }
+                            },
+                        }
+                    },
+                    Screen::Processing => {
+                        let cancel = move |_| {
+                            if let Some(handle) = pending.read().as_ref() {
+                                handle
+                                    .cancel
+                                    .store(true, std::sync::atomic::Ordering::Relaxed);
+                            }
+                        };
+                        rsx! {
+                            Processing {
+                                lang: lang(),
+                                file_name: pending_name(),
+                                progress: progress(),
+                                error: processing_error(),
+                                on_cancel: cancel,
+                                on_back: move |_| {
+                                    pending.set(None);
+                                    processing_error.set(None);
+                                    progress.set(None);
+                                    screen.set(Screen::Welcome);
+                                },
+                            }
+                        }
+                    },
                     Screen::Project => rsx! { section { class: "placeholder", "{text.transcript}" } },
                 }
             }
