@@ -233,3 +233,5 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .timeline-placeholder { height: 170px; }
 
 .playhead { transition: transform 70ms linear; }
+
+.project-switch { max-width: 190px; min-height: 30px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); }

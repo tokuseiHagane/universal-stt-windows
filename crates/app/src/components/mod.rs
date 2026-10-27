@@ -2,6 +2,7 @@ pub mod icons;
 pub mod player;
 pub mod processing;
 pub mod project;
+pub mod settings;
 pub mod speakers;
 pub mod timeline;
 pub mod transcript;

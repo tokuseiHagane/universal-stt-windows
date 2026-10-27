@@ -55,6 +55,12 @@ pub trait Service: Send + Sync {
     fn import(&self, input: PathBuf, project_dir: PathBuf) -> ImportHandle;
     fn open(&self, dir: &Path) -> Result<(StoreHandle, Project), String>;
     fn save(&self, store: &StoreHandle, project: &mut Project) -> Result<(), String>;
+    fn save_as(
+        &self,
+        store: &StoreHandle,
+        project: &mut Project,
+        dir: PathBuf,
+    ) -> Result<StoreHandle, String>;
     fn media_url(&self, store: &StoreHandle, asset: MediaAsset) -> Option<String>;
     fn waveform(&self, store: &StoreHandle) -> Option<WaveData>;
     fn project_root(&self, store: &StoreHandle) -> Option<PathBuf>;

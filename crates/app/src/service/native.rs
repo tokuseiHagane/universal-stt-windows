@@ -159,7 +159,7 @@ impl Service for NativeService {
         let root = store.dir();
         let mut registry = media::shared().lock().unwrap();
         registry.clear();
-        if let Some(root) = root.canonicalize().ok() {
+        if let Ok(root) = root.canonicalize() {
             let audio = root.join("media").join("audio16k.wav");
             if audio.is_file() {
                 registry.insert_with_root("audio", audio, root.clone());
@@ -188,6 +188,30 @@ impl Service for NativeService {
         store
             .save(project)
             .map_err(|e| NativeError::Message(e.to_string()).to_string())
+    }
+
+    fn save_as(
+        &self,
+        store: &StoreHandle,
+        project: &mut Project,
+        dir: PathBuf,
+    ) -> Result<StoreHandle, String> {
+        if dir.exists() && dir.join("project.json").exists() {
+            return Err(format!("{} already exists", dir.display()));
+        }
+        std::fs::create_dir_all(dir.join("media")).map_err(|e| e.to_string())?;
+        if let Ok(entries) = std::fs::read_dir(store.media_dir()) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() {
+                    let target = dir.join("media").join(entry.file_name());
+                    std::fs::copy(&path, target).map_err(|e| e.to_string())?;
+                }
+            }
+        }
+        let (target, _) = ProjectStore::open(&dir).map_err(|e| e.to_string())?;
+        target.save(project).map_err(|e| e.to_string())?;
+        Ok(StoreHandle::new(dir))
     }
 
     fn media_url(&self, _store: &StoreHandle, asset: MediaAsset) -> Option<String> {

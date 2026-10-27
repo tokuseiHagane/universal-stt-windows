@@ -1,6 +1,7 @@
 use crate::components::player;
 use crate::components::processing::Processing;
 use crate::components::project::{ProjectSession, ProjectView};
+use crate::components::settings::SettingsScreen;
 use crate::components::welcome::Welcome;
 use crate::service::{ImportEvent, ImportHandle};
 use dioxus::prelude::*;
@@ -30,14 +31,16 @@ const MAIN_CSS: Asset = asset!("/assets/main.css");
 #[component]
 pub fn App() -> Element {
     let service = use_context_provider(crate::service::open_service);
-    let lang = use_signal(|| Lang::from_system(system_locale().as_deref()));
-    let theme = use_signal(|| "dark".to_string());
+    let mut lang = use_signal(|| Lang::from_system(system_locale().as_deref()));
+    let mut theme = use_signal(|| "dark".to_string());
     let mut screen = use_signal(|| Screen::Welcome);
     let mut pending = use_signal(|| None::<ImportHandle>);
     let mut pending_dir = use_signal(|| None::<std::path::PathBuf>);
     let mut pending_name = use_signal(String::new);
     let mut progress = use_signal(|| None::<ProgressView>);
     let mut error = use_signal(|| None::<String>);
+    let mut settings = use_signal(|| service.settings());
+    let mut settings_open = use_signal(|| false);
     let mut processing_error = use_signal(|| None::<String>);
     let mut session = use_signal(|| None::<ProjectSession>);
     let playback = use_signal(Playback::default);
@@ -214,6 +217,8 @@ pub fn App() -> Element {
                     button {
                         class: "icon-button",
                         title: text.settings,
+                        "data-testid": "open-settings",
+                        onclick: move |_| settings_open.set(true),
                         "⚙"
                     }
                 }
@@ -296,6 +301,22 @@ pub fn App() -> Element {
                         }
                     },
                     Screen::Project => rsx! { ProjectView { lang: lang() } },
+                }
+            }
+            if settings_open() {
+                SettingsScreen {
+                    lang: lang(),
+                    on_close: move |_| settings_open.set(false),
+                    on_saved: move |next: ustt_core::Settings| {
+                        theme.set(next.theme.clone());
+                        lang.set(
+                            next.language
+                                .as_deref()
+                                .map(|code| Lang::from_system(Some(code)))
+                                .unwrap_or_else(|| Lang::from_system(system_locale().as_deref())),
+                        );
+                        settings.set(next);
+                    },
                 }
             }
         }

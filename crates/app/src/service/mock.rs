@@ -124,6 +124,15 @@ impl Service for MockService {
         Ok(())
     }
 
+    fn save_as(
+        &self,
+        store: &StoreHandle,
+        _project: &mut Project,
+        _dir: PathBuf,
+    ) -> Result<StoreHandle, String> {
+        Ok(store.clone())
+    }
+
     fn media_url(&self, store: &StoreHandle, asset: MediaAsset) -> Option<String> {
         match (store.dir.to_string_lossy().as_ref(), asset) {
             ("demo-video", MediaAsset::Proxy) => Some(DEMO_VIDEO.to_string()),

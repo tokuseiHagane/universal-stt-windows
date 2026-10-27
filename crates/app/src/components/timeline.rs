@@ -95,7 +95,7 @@ pub fn Timeline(props: TimelineProps) -> Element {
         ));
     });
 
-    let mut seek_abs = move |seconds: f64| {
+    let seek_abs = move |seconds: f64| {
         let mut player = playback;
         player.write().seek(seconds);
         player::seek(seconds);

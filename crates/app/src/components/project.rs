@@ -6,7 +6,7 @@ use crate::service::{MediaAsset, Service, StoreHandle};
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use std::sync::Arc;
-use ustt_core::{History, MediaKind, Project};
+use ustt_core::{History, MediaKind, Project, slugify};
 use ustt_ui_model::{Lang, Playback, WaveData, strings};
 
 pub struct ProjectSession {
@@ -31,14 +31,6 @@ impl ProjectSession {
             proxy_url,
             wave,
         }
-    }
-
-    pub fn project(&self) -> &Project {
-        self.history.current()
-    }
-
-    pub fn commit(&mut self, next: Project) {
-        self.history.commit(next);
     }
 
     pub fn save(&mut self, service: &dyn Service) -> Result<(), String> {
@@ -93,9 +85,10 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
     };
 
     let selected_speaker = use_signal(|| None::<uuid::Uuid>);
+    let mut project_error = use_signal(|| None::<String>);
+    use_effect(move || player::bind(playback));
 
     let rename = {
-        let session = session;
         move |(id, name): (uuid::Uuid, String)| {
             let mut session = session;
             if let Some(state) = session.write().as_mut() {
@@ -106,7 +99,6 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
         }
     };
     let edit_text = {
-        let session = session;
         move |(id, value): (uuid::Uuid, String)| {
             let mut session = session;
             if let Some(state) = session.write().as_mut() {
@@ -117,7 +109,6 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
         }
     };
     let seek = {
-        let playback = playback;
         move |seconds: f64| {
             let mut state = playback;
             state.write().seek(seconds);
@@ -134,6 +125,50 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
             }
         }
     };
+    let save_as = {
+        let service = service.clone();
+        move |_| {
+            let mut session = session;
+            let Some(parent) = service.pick_project() else {
+                return;
+            };
+            if let Some(state) = session.write().as_mut() {
+                let title = state.history.current().title.clone();
+                let target = parent.join(format!("{}.ustt", slugify(&title)));
+                let mut copy = state.history.current().clone();
+                match service.save_as(&state.store, &mut copy, target) {
+                    Ok(store) => {
+                        state.audio_url = service.media_url(&store, MediaAsset::Audio);
+                        state.proxy_url = service.media_url(&store, MediaAsset::Proxy);
+                        state.wave = service.waveform(&store).unwrap_or_default();
+                        state.store = store;
+                    }
+                    Err(message) => project_error.set(Some(message)),
+                }
+            }
+        }
+    };
+    let switch_project = {
+        let service = service.clone();
+        move |evt: Event<FormData>| {
+            let mut session = session;
+            let path = std::path::PathBuf::from(evt.value());
+            if path.as_os_str().is_empty() {
+                return;
+            }
+            if let Some(state) = session.write().as_mut() {
+                let _ = state.save(service.as_ref());
+            }
+            match service.open(&path) {
+                Ok((store, project)) => {
+                    let mut player = playback;
+                    player.write().set_duration(project.duration);
+                    *session.write() = Some(ProjectSession::new(store, project, service.as_ref()));
+                }
+                Err(message) => project_error.set(Some(message)),
+            }
+        }
+    };
     let undo = move |_| {
         let mut session = session;
         if let Some(state) = session.write().as_mut() {
@@ -147,6 +182,7 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
         }
     };
 
+    let recent = service.recent();
     let dirty = session
         .read()
         .as_ref()
@@ -181,6 +217,12 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
 
     rsx! {
         section { class: "project", "data-testid": "project",
+            if let Some(message) = project_error() {
+                div { class: "banner",
+                    span { "{message}" }
+                    button { class: "btn ghost small", onclick: move |_| project_error.set(None), "{text.dismiss}" }
+                }
+            }
             div { class: "project-toolbar",
                 div { class: "project-title", "{project.title}" }
                 div { class: "topbar-actions",
@@ -192,6 +234,19 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
                     button { class: "icon-button", title: text.save, disabled: !dirty, onclick: save_now, "💾" }
                     button { class: "icon-button", title: text.undo, disabled: !can_undo, onclick: undo, "↶" }
                     button { class: "icon-button", title: text.redo, disabled: !can_redo, onclick: redo, "↷" }
+                    button { class: "btn ghost small", onclick: save_as, "{text.save_as}" }
+                    if !recent.is_empty() {
+                        select {
+                            class: "project-switch",
+                            "data-testid": "project-switch",
+                            value: "",
+                            onchange: switch_project,
+                            option { value: "", "{text.switching_project}" }
+                            for entry in recent {
+                                option { value: "{entry.path.display()}", "{entry.title}" }
+                            }
+                        }
+                    }
                 }
             }
             SpeakerBar {

@@ -33,12 +33,13 @@ pub fn Transcript(props: TranscriptProps) -> Element {
     );
 
     use_effect(move || {
-        if autoscroll() && playing {
-            if let Some(index) = active {
-                document::eval(&format!(
-                    "window.usttTimeline && window.usttTimeline.scrollToRow('segment-{index}');"
-                ));
-            }
+        if autoscroll()
+            && playing
+            && let Some(index) = active
+        {
+            document::eval(&format!(
+                "window.usttTimeline && window.usttTimeline.scrollToRow('segment-{index}');"
+            ));
         }
     });
 
@@ -84,7 +85,7 @@ pub fn Transcript(props: TranscriptProps) -> Element {
                     });
                 },
                 onscroll: move |evt| {
-                    scroll_top.set(evt.scroll_top() as f64);
+                    scroll_top.set(evt.scroll_top());
                 },
                 onwheel: move |_| autoscroll.set(false),
                 div { style: "position: relative; height: {rows.total_px}px;",
