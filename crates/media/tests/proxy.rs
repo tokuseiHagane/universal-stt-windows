@@ -85,3 +85,41 @@ fn select_video_encoder_stays_lgpl_safe() {
     let enc = select_video_encoder(&Tools::locate(None).unwrap()).unwrap();
     assert!(matches!(enc, "h264_mf" | "libvpx-vp9"));
 }
+
+#[test]
+fn video_encoder_falls_back_to_vp9() {
+    assert_eq!(
+        ustt_media::proxy::video_encoder_candidates("h264_mf", true),
+        vec!["h264_mf", "libvpx-vp9"]
+    );
+    assert_eq!(
+        ustt_media::proxy::video_encoder_candidates("h264_mf", false),
+        vec!["h264_mf"]
+    );
+    assert_eq!(
+        ustt_media::proxy::video_encoder_candidates("libvpx-vp9", true),
+        vec!["libvpx-vp9"]
+    );
+}
+
+#[test]
+fn proxy_falls_back_when_preferred_encoder_fails() {
+    let tmp = tempfile::tempdir().unwrap();
+    let src = tmp.path().join("v.mp4");
+    make_testsrc_mp4(&src);
+    // h264_mf is absent on Linux, which mimics Media Foundation being missing
+    // under Wine/Proton on Windows.
+    unsafe { std::env::set_var("USTT_VIDEO_ENCODER", "h264_mf") };
+    let info = make_proxy(
+        &Tools::locate(None).unwrap(),
+        &src,
+        tmp.path(),
+        "fallback",
+        MediaKind::Video,
+    )
+    .unwrap();
+    unsafe { std::env::remove_var("USTT_VIDEO_ENCODER") };
+    assert_eq!(info.codec, "vp9");
+    assert_eq!(info.path.extension().unwrap(), "webm");
+    assert!(info.path.is_file());
+}

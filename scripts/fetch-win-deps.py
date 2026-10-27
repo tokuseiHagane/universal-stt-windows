@@ -25,11 +25,18 @@ FFMPEG = (
     "ffmpeg-n8.1.3-24-g92611900bb-win64-lgpl-shared-8.1.zip"
 )
 FFMPEG_SHA256 = "6c6167da57decb941a0466b60d95f7f51e4edd6b2d79c24dc4860c1c15701292"
-# 2124701 is the offline x64 installer (~214 MB); 2124703 is the online bootstrapper.
-WEBVIEW2 = "https://go.microsoft.com/fwlink/p/?LinkId=2124701"
-WEBVIEW2_NAME = "MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
+WEBVIEW2_VERSION = "156.0.4314.50"
+WEBVIEW2_RUNTIME = (
+    "https://api.nuget.org/v3-flatcontainer/webview2.runtime.x64/"
+    f"{WEBVIEW2_VERSION}/webview2.runtime.x64.{WEBVIEW2_VERSION}.nupkg"
+)
+WEBVIEW2_CORE = (
+    "https://api.nuget.org/v3-flatcontainer/webview2.runtime.x64.core/"
+    f"{WEBVIEW2_VERSION}/webview2.runtime.x64.core.{WEBVIEW2_VERSION}.nupkg"
+)
+WEBVIEW2_FOLDER = "WebView2Runtime"
 VCREDIST = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
-VCREDIST_NAME = "VC_redist.x64.exe"
+VC_DLLS = ["msvcp140.dll", "msvcp140_1.dll", "vcruntime140.dll", "vcruntime140_1.dll"]
 WEBVIEW2_SDK = "1.0.4314.35"
 WEBVIEW2_NUGET = (
     "https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/"
@@ -126,19 +133,23 @@ def install_ffmpeg(dest: Path, work: Path) -> None:
 
 
 def install_webview2(dest: Path, work: Path) -> None:
-    installer = dest / WEBVIEW2_NAME
-    if installer.is_file() and installer.stat().st_size > 100_000_000:
-        print(f"present: {WEBVIEW2_NAME}")
+    runtime = dest / WEBVIEW2_FOLDER
+    if (runtime / "msedgewebview2.exe").is_file():
+        print(f"present: {WEBVIEW2_FOLDER}")
     else:
-        download(WEBVIEW2, work / "webview2.exe")
-    if not installer.is_file() or installer.stat().st_size <= 100_000_000:
-        if (work / "webview2.exe").stat().st_size < 100_000_000:
-            raise SystemExit("WebView2 download is too small; expected the offline installer")
-        shutil.copy2(work / "webview2.exe", installer)
-    vc = dest / VCREDIST_NAME
-    if not vc.is_file() or vc.stat().st_size < 20_000_000:
-        download(VCREDIST, work / "vc_redist.exe")
-        shutil.copy2(work / "vc_redist.exe", vc)
+        for name, url in (
+            ("webview2-runtime.nupkg", WEBVIEW2_RUNTIME),
+            ("webview2-core.nupkg", WEBVIEW2_CORE),
+        ):
+            package = work / name
+            download(url, package)
+            extract = work / f"{name}-x"
+            extract_zip(package, extract)
+            source = extract / "contentFiles" / "any" / "any" / "WebView2"
+            if not source.is_dir() or not (source / "msedgewebview2.exe").is_file():
+                raise SystemExit(f"WebView2 runtime missing msedgewebview2.exe in {name}")
+            runtime.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(source, runtime, dirs_exist_ok=True)
     if not (dest / WEBVIEW2_LOADER).is_file():
         package = work / "webview2.nupkg"
         download(WEBVIEW2_NUGET, package)
@@ -148,6 +159,33 @@ def install_webview2(dest: Path, work: Path) -> None:
         if not loader.is_file():
             raise SystemExit(f"{WEBVIEW2_LOADER} not found in the WebView2 SDK package")
         shutil.copy2(loader, dest / WEBVIEW2_LOADER)
+
+
+def install_vc_runtime(dest: Path, work: Path) -> None:
+    if all((dest / name).is_file() for name in VC_DLLS):
+        print("present: VC runtime")
+        return
+    external = os.environ.get("USTT_VC_DLL_DIR")
+    if external:
+        source = Path(external)
+    elif os.name == "nt":
+        installer = work / "vc_redist.x64.exe"
+        download(VCREDIST, installer)
+        import subprocess
+
+        subprocess.run(
+            [str(installer), "/quiet", "/norestart"], check=False, timeout=600
+        )
+        source = Path(os.environ["SystemRoot"]) / "System32"
+    else:
+        raise SystemExit(
+            "VC runtime DLLs need Windows or USTT_VC_DLL_DIR pointing at the four DLLs"
+        )
+    for name in VC_DLLS:
+        path = source / name
+        if not path.is_file():
+            raise SystemExit(f"VC runtime file missing: {path}")
+        shutil.copy2(path, dest / name)
 
 
 def model_url(name: str) -> str:
@@ -174,9 +212,9 @@ REQUIRED = [
     "onnxruntime.dll",
     "ffmpeg.exe",
     "ffprobe.exe",
-    WEBVIEW2_NAME,
-    VCREDIST_NAME,
     WEBVIEW2_LOADER,
+    *VC_DLLS,
+    f"{WEBVIEW2_FOLDER}/msedgewebview2.exe",
 ]
 
 
@@ -202,7 +240,9 @@ def self_test(root: Path) -> int:
     models.mkdir(parents=True, exist_ok=True)
     (deps / "models").mkdir(parents=True, exist_ok=True)
     for name in REQUIRED:
-        (deps / name).write_bytes(b"x")
+        path = deps / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x")
     (deps / "avcodec-62.dll").write_bytes(b"x")
     files = []
     for name in ("redux-packed.gguf", "silero-vad-f16.gguf"):
@@ -239,6 +279,7 @@ def main() -> int:
         install_parakeet(dest, work)
         install_ort(dest, work)
         install_ffmpeg(dest, work)
+        install_vc_runtime(dest, work)
         if not args.skip_webview2:
             install_webview2(dest, work)
     if not args.skip_models:
@@ -246,7 +287,9 @@ def main() -> int:
     problems = validate_layout(dest, None if args.skip_models else args.manifest)
     if args.skip_webview2:
         problems = [
-            p for p in problems if p not in (WEBVIEW2_NAME, VCREDIST_NAME, WEBVIEW2_LOADER)
+            p
+            for p in problems
+            if p != WEBVIEW2_LOADER and not p.startswith(f"{WEBVIEW2_FOLDER}/")
         ]
     if problems:
         print("layout problems:", ", ".join(problems), file=sys.stderr)

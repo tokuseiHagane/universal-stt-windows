@@ -10,8 +10,8 @@ It produces the same ZIP that the tag workflow publishes.
   (`Desktop development with C++`).
 - Python 3.12.
 - Dioxus CLI 0.7.10.
-- WebView2 Runtime (bundled in Windows 11; the portable ZIP also ships the
-  offline installer for older Windows 10 machines).
+- No WebView2 or Visual C++ runtime installation is required: the ZIP carries
+  the fixed-version WebView2 runtime and the app-local MSVC DLLs.
 
 ```powershell
 cargo install dioxus-cli --version 0.7.10 --locked
@@ -52,14 +52,14 @@ dist/SHA256SUMS
 ```
 
 The ZIP root contains `UniversalSTT.exe`, the DLLs, `ffmpeg.exe`,
-`models/`, `MicrosoftEdgeWebView2RuntimeInstallerX64.exe`, `VC_redist.x64.exe`,
-`WebView2Loader.dll`, `assets/` (if the Dioxus build emits one), `LICENSE`,
+`models/`, `WebView2Runtime/`, `WebView2Loader.dll`, the VC DLLs,
+`assets/` (if the Dioxus build emits one), `LICENSE`,
 `NOTICE`, `README.md`, `version.txt` and `models/manifest.json`.
 
 The release tag must match the `ustt-app` version in `Cargo.toml`; the CI
 workflow fails otherwise.
 
-Expected size: roughly 1.3–1.7 GB depending on the FFmpeg/WebView2 builds.
+Expected size: roughly 1.5–1.8 GB depending on the FFmpeg/WebView2 builds.
 Models are stored without compression; the executable and DLLs are deflated.
 
 ## Verify
@@ -72,7 +72,8 @@ Get-Content dist\SHA256SUMS
 Manual checklist:
 
 - [ ] Extract to a writable folder with a space and a Cyrillic character in the path.
-- [ ] Run `UniversalSTT.exe` without administrator rights.
+- [ ] Run `UniversalSTT.exe` without administrator rights and without installing
+      WebView2 or VC++ (both are inside the ZIP).
 - [ ] Drag an mp4, mkv, mp3, flac and wav into the window.
 - [ ] Two to four speakers, rename, save, reopen from recents.
 - [ ] Video preview and transcript seek together.
@@ -106,5 +107,6 @@ Manual checklist:
   still a release blocker until someone runs it on a Windows-capable machine.
 - FFmpeg is LGPL and runs as a separate executable; see `NOTICE` for the
   pinned build and source link.
-- `VC_redist.x64.exe` is included because the app and ONNX Runtime use the
-  MSVC runtime; install it on machines where it is missing.
+- The MSVC runtime DLLs are deployed app-local; no redistributable install is
+  needed. The fixed WebView2 runtime requires AppContainer ACLs on Windows 10;
+  the app applies `icacls` on first start.

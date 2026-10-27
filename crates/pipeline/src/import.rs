@@ -144,7 +144,20 @@ pub fn run_import(
             })?;
         let mut proxy = None;
         if let Some(handle) = proxy_handle {
-            proxy = Some(handle.join().map_err(|_| PipelineError::Worker)??);
+            match handle.join() {
+                Ok(Ok(info)) => proxy = Some(info),
+                Ok(Err(error)) => {
+                    // A proxy is optional: the transcript must still be usable.
+                    emit(Progress::new(
+                        Phase::Proxy,
+                        1.0,
+                        format!("proxy unavailable: {error}"),
+                    ));
+                }
+                Err(_) => {
+                    emit(Progress::new(Phase::Proxy, 1.0, "proxy worker failed"));
+                }
+            }
         }
         if let Some(proxy) = proxy {
             emit(Progress::new(

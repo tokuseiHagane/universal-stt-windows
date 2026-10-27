@@ -21,9 +21,12 @@ REQUIRED = [
     "onnxruntime.dll",
     "ffmpeg.exe",
     "ffprobe.exe",
-    "MicrosoftEdgeWebView2RuntimeInstallerX64.exe",
-    "VC_redist.x64.exe",
     "WebView2Loader.dll",
+    "msvcp140.dll",
+    "msvcp140_1.dll",
+    "vcruntime140.dll",
+    "vcruntime140_1.dll",
+    "WebView2Runtime/msedgewebview2.exe",
 ]
 STORED_SUFFIXES = {".gguf", ".onnx", ".f16", ".f32"}
 ZIP64_LIMIT = 0xFFFFFFFF
@@ -87,8 +90,11 @@ def build_zip(
         allowed += [p.name for p in deps.glob("sw*.dll")]
         for name in allowed:
             source = deps / name
+            target = stage / name
+            target.parent.mkdir(parents=True, exist_ok=True)
             if source.is_file():
-                shutil.copy2(source, stage / name)
+                shutil.copy2(source, target)
+        shutil.copytree(deps / "WebView2Runtime", stage / "WebView2Runtime", dirs_exist_ok=True)
         (stage / "models").mkdir()
         for entry in entries:
             source = deps / "models" / entry["name"]
@@ -133,7 +139,9 @@ def make_fixture(root: Path) -> tuple[Path, Path, Path]:
     deps = root / "vendor" / "win64"
     (deps / "models" / "who").mkdir(parents=True, exist_ok=True)
     for name in REQUIRED:
-        (deps / name).write_bytes(b"fixture")
+        path = deps / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"fixture")
     (deps / "avcodec-62.dll").write_bytes(b"fixture")
     (deps / "swscale-9.dll").write_bytes(b"fixture")
     (deps / "swresample-6.dll").write_bytes(b"fixture")

@@ -132,8 +132,10 @@ cd crates/app
 dx build --platform desktop --release
 ```
 
-Windows packaging is reproducible locally and in GitHub Actions; see
-`docs/BUILD-WINDOWS.md`. Windows acceptance under Wine/Proton is still a
+The portable ZIP contains the app, FFmpeg, ONNX Runtime, parakeet CPU/Vulkan
+libraries, models, the fixed-version WebView2 runtime and the app-local VC++
+DLLs. Extract and run: no installer, no separate WebView2/VC++ install. See
+`docs/BUILD-WINDOWS.md`; Windows acceptance under Wine/Proton is still a
 manual release gate.
 
 ## Build and test

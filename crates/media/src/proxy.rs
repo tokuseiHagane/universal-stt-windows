@@ -11,7 +11,7 @@ pub struct ProxyInfo {
     pub codec: String,
 }
 
-pub fn select_video_encoder(tools: &Tools) -> Result<&'static str, MediaError> {
+fn encoder_names(tools: &Tools) -> Result<Vec<String>, MediaError> {
     let output = Command::new(&tools.ffmpeg)
         .args(["-hide_banner", "-encoders"])
         .output()?;
@@ -21,18 +21,43 @@ pub fn select_video_encoder(tools: &Tools) -> Result<&'static str, MediaError> {
         ));
     }
     let list = String::from_utf8_lossy(&output.stdout);
-    let names: Vec<&str> = list
+    Ok(list
         .lines()
         .filter_map(|line| line.split_whitespace().nth(1))
-        .collect();
+        .map(str::to_string)
+        .collect())
+}
+
+pub fn select_video_encoder(tools: &Tools) -> Result<&'static str, MediaError> {
+    if let Ok(forced) = std::env::var("USTT_VIDEO_ENCODER") {
+        return match forced.as_str() {
+            "h264_mf" => Ok("h264_mf"),
+            "libvpx-vp9" => Ok("libvpx-vp9"),
+            other => Err(MediaError::Decode(format!(
+                "unsupported USTT_VIDEO_ENCODER={other}"
+            ))),
+        };
+    }
+    let names = encoder_names(tools)?;
     for candidate in ["h264_mf", "libvpx-vp9"] {
-        if names.contains(&candidate) {
+        if names.iter().any(|name| name == candidate) {
             return Ok(candidate);
         }
     }
     Err(MediaError::Decode(
         "no usable H.264/VP9 encoder in ffmpeg".into(),
     ))
+}
+
+/// `h264_mf` is advertised by Windows FFmpeg builds but Media Foundation is
+/// often missing (Wine/Proton, stripped Windows editions), so keep VP9 as a
+/// runtime fallback.
+pub fn video_encoder_candidates(preferred: &'static str, vp9_available: bool) -> Vec<&'static str> {
+    if preferred == "h264_mf" && vp9_available {
+        vec!["h264_mf", "libvpx-vp9"]
+    } else {
+        vec![preferred]
+    }
 }
 
 pub fn make_proxy(
@@ -46,16 +71,39 @@ pub fn make_proxy(
     let (path, encoder) = match kind {
         MediaKind::Audio => (out_dir.join(format!("{stem}.m4a")), None),
         MediaKind::Video => {
-            let encoder = select_video_encoder(tools)?;
-            let name = if encoder == "libvpx-vp9" {
-                format!("{stem}.webm")
-            } else {
-                format!("{stem}.mp4")
-            };
-            (out_dir.join(name), Some(encoder))
+            let names = encoder_names(tools)?;
+            let preferred = select_video_encoder(tools)?;
+            let vp9 = names.iter().any(|name| name == "libvpx-vp9");
+            let mut last_error = None;
+            for encoder in video_encoder_candidates(preferred, vp9) {
+                let path = out_dir.join(if encoder == "libvpx-vp9" {
+                    format!("{stem}.webm")
+                } else {
+                    format!("{stem}.mp4")
+                });
+                match encode(tools, source, &path, Some(encoder)) {
+                    Ok(()) => {
+                        return finish(tools, path);
+                    }
+                    Err(error) => {
+                        let _ = std::fs::remove_file(&path);
+                        last_error = Some(error);
+                    }
+                }
+            }
+            return Err(last_error.unwrap_or(MediaError::Decode("no usable video encoder".into())));
         }
     };
+    encode(tools, source, &path, encoder)?;
+    finish(tools, path)
+}
 
+fn encode(
+    tools: &Tools,
+    source: &Path,
+    path: &Path,
+    encoder: Option<&str>,
+) -> Result<(), MediaError> {
     let mut cmd = Command::new(&tools.ffmpeg);
     cmd.args(["-y", "-i"]).arg(source);
     match encoder {
@@ -80,15 +128,17 @@ pub fn make_proxy(
             cmd.args(["-c:a", "aac", "-b:a", "128k"]);
         }
     }
-    cmd.arg(&path);
-
+    cmd.arg(path);
     let output = cmd.output()?;
     if !output.status.success() {
         return Err(MediaError::Decode(
             String::from_utf8_lossy(&output.stderr).trim().to_string(),
         ));
     }
+    Ok(())
+}
 
+fn finish(tools: &Tools, path: PathBuf) -> Result<ProxyInfo, MediaError> {
     let info = probe(tools, &path)?;
     let codec = info
         .video
@@ -96,6 +146,5 @@ pub fn make_proxy(
         .map(|v| v.codec.clone())
         .or_else(|| info.audio.as_ref().map(|a| a.codec.clone()))
         .ok_or_else(|| MediaError::Decode("proxy has neither audio nor video".into()))?;
-
     Ok(ProxyInfo { path, codec })
 }

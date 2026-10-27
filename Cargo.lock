@@ -6675,7 +6675,7 @@ checksum = "daf8dba3b7eb870caf1ddeed7bc9d2a049f3cfdfae7cb521b087cc33ae4c49da"
 
 [[package]]
 name = "ustt-app"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
@@ -6700,7 +6700,7 @@ dependencies = [
 
 [[package]]
 name = "ustt-asr"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "libloading 0.9.0",
  "serde",
@@ -6713,7 +6713,7 @@ dependencies = [
 
 [[package]]
 name = "ustt-cli"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "serde_json",
@@ -6726,7 +6726,7 @@ dependencies = [
 
 [[package]]
 name = "ustt-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "serde",
@@ -6739,7 +6739,7 @@ dependencies = [
 
 [[package]]
 name = "ustt-diarize"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "ndarray",
  "ort",
@@ -6753,7 +6753,7 @@ dependencies = [
 
 [[package]]
 name = "ustt-export"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "docx-rs",
@@ -6769,7 +6769,7 @@ dependencies = [
 
 [[package]]
 name = "ustt-media"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "hound",
  "serde",
@@ -6781,7 +6781,7 @@ dependencies = [
 
 [[package]]
 name = "ustt-pipeline"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "ash",
  "libloading 0.9.0",
@@ -6799,7 +6799,7 @@ dependencies = [
 
 [[package]]
 name = "ustt-ui-model"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "ustt-core",
