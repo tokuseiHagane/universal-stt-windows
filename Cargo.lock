@@ -6753,11 +6753,13 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "docx-rs",
+ "hound",
  "printpdf",
  "serde",
  "tempfile",
  "thiserror 2.0.21",
  "ustt-core",
+ "ustt-media",
  "uuid",
 ]
 
