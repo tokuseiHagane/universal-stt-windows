@@ -1,4 +1,5 @@
 pub mod color;
+pub mod history;
 pub mod model;
 
 pub use color::{SPEAKER_COLORS, color_for_index};
