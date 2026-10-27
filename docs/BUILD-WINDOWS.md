@@ -28,8 +28,8 @@ python scripts/fetch-win-deps.py --dest vendor/win64
 ```
 
 `fetch-win-deps.py` downloads the pinned parakeet.cpp CPU/Vulkan libraries,
-ONNX Runtime, FFmpeg LGPL shared, the WebView2 offline installer and the
-models. Models are verified against `models/manifest.json` (SHA-256 and size).
+ONNX Runtime, a pinned FFmpeg LGPL shared build (with SHA-256 check), the
+**offline** WebView2 x64 installer, the VC++ redistributable and the models. Models are verified against `models/manifest.json` (SHA-256 and size).
 
 Package:
 
@@ -74,7 +74,7 @@ Manual checklist:
 - [ ] Video preview and transcript seek together.
 - [ ] Undo/redo, Ctrl+S, autosave.
 - [ ] Export DOCX/PDF (Cyrillic), SRT/VTT, audio per speaker and per selection.
-- [ ] Disconnect the network; everything except none (there is no downloader) works.
+- [ ] Disconnect the network; first run and all features work (the ZIP carries the WebView2 offline installer and VC++ redistributable).
 - [ ] Vulkan backend on a Vulkan-capable GPU and CPU fallback when the DLL is removed.
 
 ## Data locations
@@ -100,4 +100,7 @@ Manual checklist:
 - There is no slim archive yet: the app has no model downloader.
 - Windows acceptance under Wine/Proton-GE has not been performed. That lane is
   still a release blocker until someone runs it on a Windows-capable machine.
-- FFmpeg is LGPL and runs as a separate executable; see `NOTICE`.
+- FFmpeg is LGPL and runs as a separate executable; see `NOTICE` for the
+  pinned build and source link.
+- `VC_redist.x64.exe` is included because the app and ONNX Runtime use the
+  MSVC runtime; install it on machines where it is missing.

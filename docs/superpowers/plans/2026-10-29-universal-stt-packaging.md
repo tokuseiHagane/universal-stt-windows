@@ -150,11 +150,11 @@ git commit -m "build: portable zip builder with manifest verification"
 ### Task 3: Local Linux package dry-run
 
 **Files:**
-- Modify: `scripts/package_release.py` (add `--allow-non-windows` for dry-run only)
+- No production change; the existing `--self-test` covers the Linux dry run
 
 - [ ] **Step 1: Dry-run**
 
-Build the Linux desktop binary (`dx build --platform desktop --release`), copy it as `UniversalSTT.exe` into a temp tree with neutralized deps, run `package_release.py --allow-non-windows --self-test`. Assert the ZIP has the full layout and prints a size estimate. This proves the script, not the Windows binary.
+Build the Linux desktop binary (`dx build --platform desktop --release`), copy it as `UniversalSTT.exe` into a temp tree with neutralized deps, and run `package_release.py` against that tree. Assert the ZIP has the full layout. This proves the script, not the Windows binary.
 
 - [ ] **Step 2: Commit**
 

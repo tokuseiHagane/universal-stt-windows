@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import json
 import shutil
 import sys
@@ -19,6 +20,7 @@ REQUIRED = [
     "ffmpeg.exe",
     "ffprobe.exe",
     "MicrosoftEdgeWebView2RuntimeInstallerX64.exe",
+    "VC_redist.x64.exe",
 ]
 STORED_SUFFIXES = {".gguf", ".onnx", ".f16", ".f32"}
 ZIP64_LIMIT = 0xFFFFFFFF
@@ -43,7 +45,7 @@ def verify_models(models: Path, manifest: Path) -> None:
             raise SystemExit(f"sha256 mismatch: {path}")
 
 
-def validate_layout(root: Path, manifest: Path | None, allow_non_windows: bool = False) -> list[str]:
+def validate_layout(root: Path, manifest: Path | None) -> list[str]:
     problems = [name for name in REQUIRED if not (root / name).is_file()]
     if (root / "parakeet.dll").exists():
         problems.append("unexpected parakeet.dll (expected parakeet_cpu.dll/parakeet_vulkan.dll)")
@@ -67,23 +69,38 @@ def build_zip(
     verify_models(deps / "models", manifest)
     if not exe.is_file():
         raise SystemExit(f"app executable missing: {exe}")
+    if not version.strip():
+        raise SystemExit("version must not be empty")
     out_dir.mkdir(parents=True, exist_ok=True)
+    entries = json.loads(manifest.read_text())["files"]
     with tempfile.TemporaryDirectory() as tmp:
         stage = Path(tmp) / "UniversalSTT"
-        shutil.copytree(deps, stage)
+        stage.mkdir()
+        allowed = list(REQUIRED) + ["parakeet.dll"]
+        allowed += [p.name for p in deps.glob("av*.dll")]
+        for name in allowed:
+            source = deps / name
+            if source.is_file():
+                shutil.copy2(source, stage / name)
+        (stage / "models").mkdir()
+        for entry in entries:
+            source = deps / "models" / entry["name"]
+            target = stage / "models" / entry["name"]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+        shutil.copy2(manifest, stage / "models" / "manifest.json")
         shutil.copy2(exe, stage / "UniversalSTT.exe")
         for name in ("LICENSE", "NOTICE", "README.md"):
             source = ROOT / name
             if source.is_file():
                 shutil.copy2(source, stage / name)
-        (stage / "version.txt").write_text(f"version={version}\n")
-        (stage / "models").mkdir(parents=True, exist_ok=True)
-        shutil.copy2(manifest, stage / "models" / "manifest.json")
+        commit = os.environ.get("GITHUB_SHA", "local")
+        (stage / "version.txt").write_text(f"version={version}\ncommit={commit}\n")
         name = f"UniversalSTT-{version}-win64-portable.zip"
         target = out_dir / name
-        entries = sorted(p for p in stage.rglob("*") if p.is_file())
+        stage_files = sorted(p for p in stage.rglob("*") if p.is_file())
         with zipfile.ZipFile(target, "w", allowZip64=True) as zf:
-            for path in entries:
+            for path in stage_files:
                 relative = path.relative_to(stage).as_posix()
                 method = (
                     zipfile.ZIP_STORED
@@ -93,6 +110,7 @@ def build_zip(
                 info = zipfile.ZipInfo(relative)
                 info.compress_type = method
                 info.external_attr = 0o644 << 16
+                info.file_size = path.stat().st_size
                 with path.open("rb") as source, zf.open(info, "w") as dest:
                     shutil.copyfileobj(source, dest, 1 << 20)
         digest = sha256(target)
@@ -170,14 +188,15 @@ def main() -> int:
     parser.add_argument("--out", type=Path, default=Path("dist"))
     parser.add_argument("--version", default="0.1.0")
     parser.add_argument("--self-test", action="store_true")
-    parser.add_argument("--root", type=Path, default=Path("."))
-    parser.add_argument("--allow-non-windows", action="store_true")
+    parser.add_argument("--root", type=Path)
     args = parser.parse_args()
     if args.self_test:
+        if args.root is None:
+            parser.error("--self-test requires --root")
         return self_test(args.root)
     if args.exe is None:
         parser.error("--exe is required")
-    problems = validate_layout(args.deps, args.manifest, args.allow_non_windows)
+    problems = validate_layout(args.deps, args.manifest)
     if problems:
         print("layout problems:", ", ".join(problems), file=sys.stderr)
         return 1

@@ -19,20 +19,36 @@ PARAKEET_ASSETS = {
 }
 ORT = "https://github.com/microsoft/onnxruntime/releases/download/v1.31.1/onnxruntime-win-x64-1.31.1.zip"
 FFMPEG = (
-    "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/"
-    "ffmpeg-master-latest-win64-lgpl-shared.zip"
+    "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-27-18-38/"
+    "ffmpeg-n8.1.3-24-g92611900bb-win64-lgpl-shared-8.1.zip"
 )
-WEBVIEW2 = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+FFMPEG_SHA256 = "6c6167da57decb941a0466b60d95f7f51e4edd6b2d79c24dc4860c1c15701292"
+# 2124701 is the offline x64 installer (~214 MB); 2124703 is the online bootstrapper.
+WEBVIEW2 = "https://go.microsoft.com/fwlink/p/?LinkId=2124701"
 WEBVIEW2_NAME = "MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
+VCREDIST = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+VCREDIST_NAME = "VC_redist.x64.exe"
 WHO_REV = "097d29a140dd19e220cff132e455e515d0e47e59"
 ASR_REV = "c77726e46ceaab96b5a5a3328915edb44c73209d"
 
 
-def download(url: str, target: Path) -> None:
+def download(url: str, target: Path, attempts: int = 3) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
-    print(f"fetching {url}")
-    with urllib.request.urlopen(url, timeout=120) as response, target.open("wb") as out:
-        shutil.copyfileobj(response, out, 1 << 20)
+    last: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        print(f"fetching {url} (attempt {attempt}/{attempts})")
+        try:
+            with urllib.request.urlopen(url, timeout=300) as response, target.open("wb") as out:
+                shutil.copyfileobj(response, out, 1 << 20)
+            return
+        except Exception as error:  # noqa: BLE001 - retry every transport failure
+            last = error
+            target.unlink(missing_ok=True)
+            if attempt < attempts:
+                import time
+
+                time.sleep(2 * attempt)
+    raise SystemExit(f"download failed: {url}: {last}")
 
 
 def sha256(path: Path) -> str:
@@ -74,6 +90,8 @@ def install_ort(dest: Path, work: Path) -> None:
 def install_ffmpeg(dest: Path, work: Path) -> None:
     archive = work / "ffmpeg.zip"
     download(FFMPEG, archive)
+    if sha256(archive) != FFMPEG_SHA256:
+        raise SystemExit("ffmpeg archive sha256 mismatch")
     extract = work / "ffmpeg"
     extract_zip(archive, extract)
     bins = list(extract.rglob("ffmpeg.exe"))
@@ -81,14 +99,21 @@ def install_ffmpeg(dest: Path, work: Path) -> None:
         raise SystemExit("ffmpeg.exe not found in the FFmpeg archive")
     bin_dir = bins[0].parent
     for name in ("ffmpeg.exe", "ffprobe.exe"):
-        shutil.copy2(bin_dir / name, dest / name)
+        source = bin_dir / name
+        if not source.is_file():
+            raise SystemExit(f"{name} not found in the FFmpeg archive")
+        shutil.copy2(source, dest / name)
     for dll in bin_dir.glob("*.dll"):
         shutil.copy2(dll, dest / dll.name)
 
 
 def install_webview2(dest: Path, work: Path) -> None:
     download(WEBVIEW2, work / "webview2.exe")
+    if (work / "webview2.exe").stat().st_size < 100_000_000:
+        raise SystemExit("WebView2 download is too small; expected the offline installer")
     shutil.copy2(work / "webview2.exe", dest / WEBVIEW2_NAME)
+    download(VCREDIST, work / "vc_redist.exe")
+    shutil.copy2(work / "vc_redist.exe", dest / VCREDIST_NAME)
 
 
 def model_url(name: str) -> str:
@@ -116,6 +141,7 @@ REQUIRED = [
     "ffmpeg.exe",
     "ffprobe.exe",
     WEBVIEW2_NAME,
+    VCREDIST_NAME,
 ]
 
 
@@ -165,9 +191,11 @@ def main() -> int:
     parser.add_argument("--skip-webview2", action="store_true")
     parser.add_argument("--skip-models", action="store_true")
     parser.add_argument("--self-test", action="store_true")
-    parser.add_argument("--root", type=Path, default=Path("."))
+    parser.add_argument("--root", type=Path)
     args = parser.parse_args()
     if args.self_test:
+        if args.root is None:
+            parser.error("--self-test requires --root")
         return self_test(args.root)
     dest = args.dest
     dest.mkdir(parents=True, exist_ok=True)
@@ -182,7 +210,7 @@ def main() -> int:
         install_models(dest, args.manifest)
     problems = validate_layout(dest, None if args.skip_models else args.manifest)
     if args.skip_webview2:
-        problems = [p for p in problems if p != WEBVIEW2_NAME]
+        problems = [p for p in problems if p not in (WEBVIEW2_NAME, VCREDIST_NAME)]
     if problems:
         print("layout problems:", ", ".join(problems), file=sys.stderr)
         return 1

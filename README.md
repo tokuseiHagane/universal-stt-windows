@@ -157,7 +157,6 @@ python scripts/package_release.py --deps vendor/win64 `
   --out dist --version 0.1.0
 ```
 
-Add `--allow-non-windows` only for a dry run of the packaging script.
 Full instructions, the manual checklist and known limitations are in
 `docs/BUILD-WINDOWS.md`.
 

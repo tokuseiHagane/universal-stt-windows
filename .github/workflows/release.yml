@@ -35,13 +35,18 @@ jobs:
         shell: pwsh
         run: |
           $version = $env:GITHUB_REF_NAME -replace '^v', ''
-          $exe = Get-ChildItem -Path target/dx -Recurse -Filter universal-stt.exe |
-            Select-Object -First 1
-          if (-not $exe) { throw "universal-stt.exe not found" }
+          $meta = cargo metadata --no-deps --format-version 1 | ConvertFrom-Json
+          $cargoVersion = ($meta.packages | Where-Object { $_.name -eq 'ustt-app' }).version
+          if ($cargoVersion -ne $version) {
+            throw "tag $version does not match ustt-app $cargoVersion"
+          }
+          $exe = "target/dx/universal-stt/release/windows/app/universal-stt.exe"
+          if (-not (Test-Path $exe)) { throw "missing $exe" }
+          cargo tree --workspace > dist/DEPENDENCIES.txt
           python scripts/package_release.py `
             --deps vendor/win64 `
             --manifest models/manifest.json `
-            --exe $exe.FullName `
+            --exe $exe `
             --out dist `
             --version $version
       - name: Publish release
@@ -54,4 +59,4 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             gh release create $env:GITHUB_REF_NAME --generate-notes --title "Universal STT $env:GITHUB_REF_NAME"
           }
-          gh release upload $env:GITHUB_REF_NAME $zip.FullName dist/SHA256SUMS NOTICE LICENSE --clobber
+          gh release upload $env:GITHUB_REF_NAME $zip.FullName dist/SHA256SUMS dist/DEPENDENCIES.txt NOTICE LICENSE --clobber

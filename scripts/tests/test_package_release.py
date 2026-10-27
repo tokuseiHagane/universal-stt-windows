@@ -39,6 +39,25 @@ def test_build_zip_layout_and_compression(tmp_path: Path) -> None:
         assert zf.getinfo("UniversalSTT.exe").compress_type == zipfile.ZIP_DEFLATED
 
 
+def test_build_zip_skips_stray_files(tmp_path: Path) -> None:
+    deps, manifest, exe = package.make_fixture(tmp_path)
+    (deps / "leftover.part").write_bytes(b"junk")
+    archive = package.build_zip(deps, exe, tmp_path / "dist", "1.0.0", manifest)
+    with zipfile.ZipFile(archive) as zf:
+        assert "leftover.part" not in zf.namelist()
+        assert zf.getinfo("models/redux-packed.gguf").file_size == len(b"fixture-redux-packed.gguf")
+
+
+def test_empty_version_is_rejected(tmp_path: Path) -> None:
+    deps, manifest, exe = package.make_fixture(tmp_path)
+    try:
+        package.build_zip(deps, exe, tmp_path / "dist", " ", manifest)
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError("empty version accepted")
+
+
 def test_self_test_cli(tmp_path: Path) -> None:
     result = subprocess.run(
         [sys.executable, str(SCRIPT), "--self-test", "--root", str(tmp_path)],

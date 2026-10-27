@@ -49,6 +49,7 @@ case "$(uname -s)" in
       mkdir -p "$tmp/extract"
       unzip -q -o "$tmp/$asset" -d "$tmp/extract"
       find "$tmp/extract" -type f -name "parakeet.dll" -exec cp {} "$libdir/$canonical" \;
+      [ -f "$libdir/$canonical" ] || { echo "parakeet.dll not found in $asset" >&2; exit 1; }
     }
     fetch_win "parakeet-v$version-lib-win-cpu-x64.zip" "parakeet_cpu.dll"
     fetch_win "parakeet-v$version-lib-win-vulkan-x64.zip" "parakeet_vulkan.dll"
