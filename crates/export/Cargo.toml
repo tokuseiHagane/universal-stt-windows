@@ -6,8 +6,9 @@ license.workspace = true
 repository.workspace = true
 
 [features]
-default = ["office"]
+default = ["office", "audio"]
 office = ["dep:docx-rs", "dep:printpdf"]
+audio = ["dep:ustt-media", "dep:tempfile"]
 
 [dependencies]
 docx-rs = { version = "0.4.22", optional = true }
@@ -17,8 +18,8 @@ uuid.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
 serde = { workspace = true }
-ustt-media = { path = "../media" }
-tempfile = "3"
+ustt-media = { path = "../media", optional = true }
+tempfile = { version = "3", optional = true }
 
 [dev-dependencies]
 hound = "3"

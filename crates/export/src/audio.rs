@@ -1,4 +1,4 @@
-use crate::model::ExportError;
+use crate::model::{AudioMode, ExportError};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -8,12 +8,6 @@ use ustt_media::Tools;
 use uuid::Uuid;
 
 pub const PAUSE_S: f64 = 0.4;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AudioMode {
-    Speakers,
-    Segments,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AudioTrack {

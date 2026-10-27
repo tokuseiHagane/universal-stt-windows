@@ -1,4 +1,7 @@
-use super::{ImportEvent, ImportHandle, MediaAsset, Service, StoreHandle};
+use super::{
+    ExportEvent, ExportJob, ExportRequest, ImportEvent, ImportHandle, MediaAsset, Service,
+    StoreHandle,
+};
 use dioxus::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -183,4 +186,91 @@ impl Service for MockService {
         };
         Some((handle, Self::project(kind)))
     }
+
+    fn export(&self, _store: &StoreHandle, project: Project, request: ExportRequest) -> ExportJob {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let result = (|| {
+            if !matches!(request.audio, ustt_export::AudioMode::None) {
+                return Err("audio export needs the desktop build".to_string());
+            }
+            let selected = request.speakers.as_deref();
+            let mut out = String::new();
+            let mut cues = String::new();
+            let mut index = 1;
+            for segment in &project.segments {
+                let name = segment
+                    .speaker_id
+                    .and_then(|id| project.speakers.iter().find(|s| s.id == id))
+                    .map(|s| s.name.as_str())
+                    .unwrap_or("Speaker");
+                if let (Some(allowed), Some(id)) = (selected, segment.speaker_id)
+                    && !allowed.contains(&id)
+                {
+                    continue;
+                }
+                if selected.is_some() && segment.speaker_id.is_none() {
+                    continue;
+                }
+                match request.format {
+                    ustt_export::TextOutput::Vtt => {
+                        cues.push_str(&format!(
+                            "{} --> {}\n{}: {}\n\n",
+                            cue(segment.start, '.'),
+                            cue(segment.end, '.'),
+                            name,
+                            segment.text
+                        ));
+                    }
+                    ustt_export::TextOutput::Srt => {
+                        cues.push_str(&format!(
+                            "{index}\n{} --> {}\n{}: {}\n\n",
+                            cue(segment.start, ','),
+                            cue(segment.end, ','),
+                            name,
+                            segment.text
+                        ));
+                        index += 1;
+                    }
+                    _ => out.push_str(&format!("{}: {}\n", name, segment.text)),
+                }
+            }
+            let text = match request.format {
+                ustt_export::TextOutput::Vtt => format!("WEBVTT\n\n{cues}"),
+                ustt_export::TextOutput::Srt => cues,
+                _ => out,
+            };
+            Ok(text.into_bytes())
+        })();
+        match result {
+            Ok(bytes) => {
+                let name = super::export_filename(
+                    &project.title,
+                    &chrono::Utc::now().format("%Y-%m-%d").to_string(),
+                    request.format,
+                );
+                let _ = tx.send(ExportEvent::Download {
+                    filename: name,
+                    bytes,
+                });
+            }
+            Err(message) => {
+                let _ = tx.send(ExportEvent::Failed(message));
+            }
+        }
+        ExportJob { rx, cancel }
+    }
+
+    fn default_export_dir(&self) -> Option<PathBuf> {
+        None
+    }
+}
+
+fn cue(seconds: f64, separator: char) -> String {
+    let total_ms = (seconds.max(0.0) * 1000.0).round() as u64;
+    let ms = total_ms % 1000;
+    let s = total_ms / 1000 % 60;
+    let m = total_ms / 60_000 % 60;
+    let h = total_ms / 3_600_000;
+    format!("{h:02}:{m:02}:{s:02}{separator}{ms:03}")
 }

@@ -1,9 +1,13 @@
-use super::{ImportEvent, ImportHandle, MediaAsset, Service, StoreHandle, media};
+use super::{
+    ExportEvent, ExportJob, ExportRequest, ImportEvent, ImportHandle, MediaAsset, Service,
+    StoreHandle, media,
+};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, RwLock};
 use ustt_core::{MediaKind, Project, ProjectStore, RecentEntry, RecentStore, Settings, slugify};
+use ustt_export::{AudioMode, extract, plan_segments, plan_speakers};
 use ustt_pipeline::backend::detect;
 use ustt_pipeline::import::{ImportRequest, PipelineError, run_import};
 use ustt_pipeline::models::resolve_models;
@@ -252,6 +256,110 @@ impl Service for NativeService {
 
     fn demo(&self, _kind: MediaKind) -> Option<(StoreHandle, Project)> {
         None
+    }
+
+    fn export(&self, store: &StoreHandle, project: Project, request: ExportRequest) -> ExportJob {
+        let (tx, rx) = mpsc::channel();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let flag = cancel.clone();
+        let store = store.clone();
+        std::thread::spawn(move || {
+            if let Err(message) = super::validate_export(&request) {
+                let _ = tx.send(ExportEvent::Failed(message));
+                return;
+            }
+            let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+            let filename = super::export_filename(&project.title, &date, request.format);
+            let stem = filename
+                .rsplit_once('.')
+                .map(|(stem, _)| stem.to_string())
+                .unwrap_or(filename);
+            let mut files = Vec::new();
+            let selected = request.speakers.as_deref();
+            let lines = ustt_export::lines(&project, selected);
+            let text = match request.format {
+                ustt_export::TextOutput::Docx => {
+                    ustt_export::render_docx(&project, &lines, request.timestamps)
+                }
+                ustt_export::TextOutput::Pdf => {
+                    ustt_export::render_pdf(&project, &lines, request.timestamps)
+                }
+                other => {
+                    Ok(ustt_export::render_text(&lines, other, request.timestamps).into_bytes())
+                }
+            };
+            let bytes = match text {
+                Ok(bytes) => bytes,
+                Err(err) => {
+                    let _ = tx.send(ExportEvent::Failed(err.to_string()));
+                    return;
+                }
+            };
+            if let Err(err) = std::fs::create_dir_all(&request.out_dir) {
+                let _ = tx.send(ExportEvent::Failed(err.to_string()));
+                return;
+            }
+            let path = request
+                .out_dir
+                .join(format!("{stem}.{}", request.format.extension()));
+            if let Err(err) = std::fs::write(&path, bytes) {
+                let _ = tx.send(ExportEvent::Failed(err.to_string()));
+                return;
+            }
+            files.push(path);
+            if !matches!(request.audio, AudioMode::None) {
+                let plan = match request.audio {
+                    AudioMode::Speakers => plan_speakers(&project, selected),
+                    AudioMode::Segments => {
+                        let ids = request.segments.clone().unwrap_or_default();
+                        plan_segments(&project, &ids)
+                    }
+                    AudioMode::None => unreachable!(),
+                };
+                let tools = match ustt_media::Tools::locate(None) {
+                    Ok(tools) => tools,
+                    Err(err) => {
+                        let _ = tx.send(ExportEvent::Failed(err.to_string()));
+                        return;
+                    }
+                };
+                let wav = store.media_dir().join("audio16k.wav");
+                let sender = tx.clone();
+                let outcome = extract(
+                    &tools,
+                    &wav,
+                    &plan,
+                    request.audio_format,
+                    &request.out_dir,
+                    &flag,
+                    &mut |fraction, detail| {
+                        let _ = sender.send(ExportEvent::Progress {
+                            fraction,
+                            detail: detail.to_string(),
+                        });
+                    },
+                );
+                match outcome {
+                    Ok(mut audio) => files.append(&mut audio),
+                    Err(ustt_export::ExportError::Cancelled) => {
+                        let _ = tx.send(ExportEvent::Cancelled);
+                        return;
+                    }
+                    Err(err) => {
+                        let _ = tx.send(ExportEvent::Failed(err.to_string()));
+                        return;
+                    }
+                }
+            }
+            let _ = tx.send(ExportEvent::Done(files));
+        });
+        ExportJob { rx, cancel }
+    }
+
+    fn default_export_dir(&self) -> Option<PathBuf> {
+        let dir = documents_dir().join("Universal STT").join("Exports");
+        let _ = std::fs::create_dir_all(&dir);
+        Some(dir)
     }
 }
 

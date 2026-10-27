@@ -6689,6 +6689,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "ustt-core",
+ "ustt-export",
  "ustt-media",
  "ustt-pipeline",
  "ustt-ui-model",

@@ -36,6 +36,13 @@ impl TextOutput {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AudioMode {
+    None,
+    Speakers,
+    Segments,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExportLine {
     pub start: f64,
