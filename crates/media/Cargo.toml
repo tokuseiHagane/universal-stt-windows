@@ -9,6 +9,7 @@ repository.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+ustt-core = { path = "../core" }
 hound = "3"
 
 [dev-dependencies]
