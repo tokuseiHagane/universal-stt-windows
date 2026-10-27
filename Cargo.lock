@@ -817,6 +817,8 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror",
+ "ustt-core",
+ "ustt-media",
 ]
 
 [[package]]
