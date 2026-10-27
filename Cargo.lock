@@ -6714,10 +6714,13 @@ dependencies = [
 name = "ustt-cli"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "serde_json",
  "ustt-core",
+ "ustt-export",
  "ustt-media",
  "ustt-pipeline",
+ "uuid",
 ]
 
 [[package]]

@@ -14,3 +14,6 @@ serde_json.workspace = true
 ustt-core = { path = "../core" }
 ustt-media = { path = "../media" }
 ustt-pipeline = { path = "../pipeline" }
+ustt-export = { path = "../export" }
+uuid.workspace = true
+chrono.workspace = true
