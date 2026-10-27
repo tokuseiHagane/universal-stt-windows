@@ -19,21 +19,31 @@ impl MockService {
     }
 
     fn project(kind: MediaKind) -> Project {
-        let mut project = Project::new(
-            if kind == MediaKind::Video {
-                "Demo video"
+        let epoch = chrono::DateTime::<chrono::Utc>::from_timestamp(0, 0).unwrap();
+        let mut project = Project {
+            schema: Project::SCHEMA,
+            id: Uuid::from_u128(1000),
+            title: if kind == MediaKind::Video {
+                "Demo video".into()
             } else {
-                "Demo interview"
+                "Demo interview".into()
             },
-            SourceRef {
+            source: SourceRef {
                 path: PathBuf::from("demo"),
                 size_bytes: 0,
                 modified_unix: 0,
                 fingerprint: "demo".into(),
             },
             kind,
-            3.0,
-        );
+            duration: 3.0,
+            language: None,
+            speakers: Vec::new(),
+            segments: Vec::new(),
+            turns: Vec::new(),
+            created_at: epoch,
+            modified_at: epoch,
+            export_defaults: Default::default(),
+        };
         project.speakers = vec![
             Speaker {
                 id: Uuid::from_u128(101),

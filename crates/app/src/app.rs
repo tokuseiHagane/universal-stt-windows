@@ -1,7 +1,7 @@
 use crate::components::player;
 use crate::components::processing::Processing;
 use crate::components::project::{ProjectSession, ProjectView};
-use crate::components::settings::SettingsScreen;
+use crate::components::settings::{SettingsScreen, load_project_error};
 use crate::components::welcome::Welcome;
 use crate::service::{ImportEvent, ImportHandle};
 use dioxus::prelude::*;
@@ -199,9 +199,10 @@ pub fn App() -> Element {
 
     use_effect(move || {
         let theme = theme();
-        document::eval(&format!(
-            "document.documentElement.dataset.theme = '{theme}';"
-        ));
+        let code = format!("document.documentElement.dataset.theme = '{theme}';");
+        spawn(async move {
+            let _ = document::eval(&code).await;
+        });
     });
 
     rsx! {
@@ -256,7 +257,7 @@ pub fn App() -> Element {
                                             session.set(Some(ProjectSession::new(store, project, service.as_ref())));
                                             screen.set(Screen::Project);
                                         }
-                                        Err(message) => error.set(Some(message)),
+                                        Err(_) => error.set(Some(load_project_error(&dir))),
                                     }
                                 }
                             },

@@ -29,5 +29,8 @@ fn main() {
             .launch(app::App);
     }
     #[cfg(target_arch = "wasm32")]
-    dioxus::launch(app::App);
+    {
+        console_error_panic_hook::set_once();
+        dioxus::launch(app::App);
+    }
 }

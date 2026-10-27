@@ -7,3 +7,6 @@
 *.ustt.partial/
 __pycache__/
 *.pyc
+node_modules/
+test-results/
+playwright-report/

@@ -82,17 +82,23 @@ pub fn Timeline(props: TimelineProps) -> Element {
 
     use_effect(move || {
         let scene = scene.clone();
-        document::eval(&format!(
+        let code = format!(
             "window.usttTimeline && window.usttTimeline.draw(document.getElementById('timeline'), {scene});"
-        ));
+        );
+        spawn(async move {
+            let _ = document::eval(&code).await;
+        });
     });
 
     use_effect(move || {
         let position = playback.read().position;
         let fraction = (position / duration).clamp(0.0, 1.0);
-        document::eval(&format!(
+        let code = format!(
             "window.usttTimeline && window.usttTimeline.setPlayhead('playhead', {fraction});"
-        ));
+        );
+        spawn(async move {
+            let _ = document::eval(&code).await;
+        });
     });
 
     let seek_abs = move |seconds: f64| {

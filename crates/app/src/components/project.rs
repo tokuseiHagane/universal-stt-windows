@@ -231,7 +231,7 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
                         "data-testid": "save-state",
                         if dirty { "{text.unsaved}" } else { "{text.saved}" }
                     }
-                    button { class: "icon-button", title: text.save, disabled: !dirty, onclick: save_now, "💾" }
+                    button { class: "icon-button", title: text.save, "data-testid": "save-button", disabled: !dirty, onclick: save_now, "💾" }
                     button { class: "icon-button", title: text.undo, disabled: !can_undo, onclick: undo, "↶" }
                     button { class: "icon-button", title: text.redo, disabled: !can_redo, onclick: redo, "↷" }
                     button { class: "btn ghost small", onclick: save_as, "{text.save_as}" }

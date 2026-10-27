@@ -37,9 +37,12 @@ pub fn Transcript(props: TranscriptProps) -> Element {
             && playing
             && let Some(index) = active
         {
-            document::eval(&format!(
+            let code = format!(
                 "window.usttTimeline && window.usttTimeline.scrollToRow('segment-{index}');"
-            ));
+            );
+            spawn(async move {
+                let _ = document::eval(&code).await;
+            });
         }
     });
 

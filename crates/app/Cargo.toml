@@ -32,7 +32,10 @@ ustt-media = { path = "../media" }
 ustt-pipeline = { path = "../pipeline" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+futures-timer = { version = "3", features = ["wasm-bindgen"] }
+chrono = { workspace = true, features = ["wasmbind"] }
+console_error_panic_hook = "0.1"
 gloo-timers = { version = "0.3", features = ["futures"] }
 wasm-bindgen = "0.2"
-web-sys = { version = "0.3", features = ["Window", "Navigator"] }
+web-sys = { version = "0.3", features = ["Window", "Navigator", "Document", "Element", "HtmlMediaElement"] }
 uuid = { workspace = true, features = ["js"] }

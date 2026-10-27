@@ -60,33 +60,87 @@ pub fn bind(playback: Signal<Playback>) {
 }
 
 pub fn eval_player(script: &str) {
-    document::eval(&format!(
+    let code = format!(
         "(() => {{ const el = document.getElementById('player'); if (!el) return; {script} }})();"
-    ));
+    );
+    spawn(async move {
+        let _ = document::eval(&code).await;
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
+fn with_media(apply: impl FnOnce(&web_sys::HtmlMediaElement)) {
+    use wasm_bindgen::JsCast;
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let Some(document) = window.document() else {
+        return;
+    };
+    let Some(element) = document.get_element_by_id("player") else {
+        return;
+    };
+    if let Ok(media) = element.dyn_into::<web_sys::HtmlMediaElement>() {
+        apply(&media);
+    }
 }
 
 pub fn seek(seconds: f64) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        with_media(|media| media.set_current_time(seconds));
+    }
+    #[cfg(not(target_arch = "wasm32"))]
     eval_player(&format!(
         "if (el.readyState > 0) {{ el.currentTime = {seconds}; }} else {{ el.addEventListener('loadedmetadata', () => {{ el.currentTime = {seconds}; }}, {{ once: true }}); }}"
     ));
 }
 
 pub fn play() {
+    #[cfg(target_arch = "wasm32")]
+    {
+        with_media(|media| {
+            let _ = media.play();
+        });
+    }
+    #[cfg(not(target_arch = "wasm32"))]
     eval_player("el.play().catch(() => {});");
 }
 
 pub fn pause() {
+    #[cfg(target_arch = "wasm32")]
+    {
+        with_media(|media| {
+            let _ = media.pause();
+        });
+    }
+    #[cfg(not(target_arch = "wasm32"))]
     eval_player("el.pause();");
 }
 
 pub fn set_rate(rate: f64) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        with_media(|media| media.set_playback_rate(rate));
+    }
+    #[cfg(not(target_arch = "wasm32"))]
     eval_player(&format!("el.playbackRate = {rate};"));
 }
 
 pub fn set_volume(volume: f64) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        with_media(|media| media.set_volume(volume));
+    }
+    #[cfg(not(target_arch = "wasm32"))]
     eval_player(&format!("el.volume = {volume};"));
 }
 
 pub fn set_muted(muted: bool) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        with_media(|media| media.set_muted(muted));
+    }
+    #[cfg(not(target_arch = "wasm32"))]
     eval_player(&format!("el.muted = {muted};"));
 }
