@@ -1,3 +1,4 @@
+use super::export_modal::ExportModal;
 use super::player;
 use super::speakers::SpeakerBar;
 use super::timeline::Timeline;
@@ -5,6 +6,7 @@ use super::transcript::Transcript;
 use crate::service::{MediaAsset, Service, StoreHandle};
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
+use std::collections::HashSet;
 use std::sync::Arc;
 use ustt_core::{History, MediaKind, Project, slugify};
 use ustt_ui_model::{Lang, Playback, WaveData, strings};
@@ -95,6 +97,8 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
     let project = session.read().as_ref().map(|s| s.history.current().clone());
     let recent_signal = use_context::<Signal<Vec<ustt_core::RecentEntry>>>();
     let selected_speaker = use_signal(|| None::<uuid::Uuid>);
+    let selected_segments = use_signal(HashSet::<uuid::Uuid>::new);
+    let mut export_open = use_signal(|| false);
     let mut project_error = use_signal(|| None::<String>);
     use_effect(move || player::bind(playback));
     use_drop(|| {
@@ -269,6 +273,12 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
                     button { class: "icon-button", title: text.undo, disabled: !can_undo, onclick: undo, "↶" }
                     button { class: "icon-button", title: text.redo, disabled: !can_redo, onclick: redo, "↷" }
                     button { class: "btn ghost small", onclick: save_as, "{text.save_as}" }
+                    button {
+                        class: "btn primary small",
+                        "data-testid": "open-export",
+                        onclick: move |_| export_open.set(true),
+                        "{text.export}"
+                    }
                     if !recent.is_empty() {
                         select {
                             class: "project-switch",
@@ -298,6 +308,7 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
                     selected: selected_speaker,
                     on_seek: seek,
                     on_edit: edit_text,
+                    selected_segments,
                 }
                 if project.kind == MediaKind::Video {
                     div { class: "preview",
@@ -327,6 +338,19 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
                 project: project.clone(),
                 wave,
                 on_seek: seek,
+            }
+            if export_open() {
+                ExportModal {
+                    lang: props.lang,
+                    project: project.clone(),
+                    store: session
+                        .read()
+                        .as_ref()
+                        .map(|s| s.store.clone())
+                        .unwrap_or_else(|| StoreHandle::new(".")),
+                    selected_segments,
+                    on_close: move |_| export_open.set(false),
+                }
             }
         }
     }

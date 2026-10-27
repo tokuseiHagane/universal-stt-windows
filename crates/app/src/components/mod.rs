@@ -7,3 +7,5 @@ pub mod speakers;
 pub mod timeline;
 pub mod transcript;
 pub mod welcome;
+
+pub mod export_modal;

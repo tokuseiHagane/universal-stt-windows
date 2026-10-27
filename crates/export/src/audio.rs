@@ -1,4 +1,4 @@
-use crate::model::{AudioMode, ExportError};
+use crate::model::ExportError;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};

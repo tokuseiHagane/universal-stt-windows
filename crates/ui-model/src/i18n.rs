@@ -82,6 +82,17 @@ pub struct Strings {
     pub project_missing: &'static str,
     pub speaker_filter_hint: &'static str,
     pub saved_at: &'static str,
+    pub export: &'static str,
+    pub export_format: &'static str,
+    pub export_timestamps: &'static str,
+    pub export_audio: &'static str,
+    pub export_audio_none: &'static str,
+    pub export_audio_speakers: &'static str,
+    pub export_audio_segments: &'static str,
+    pub export_audio_format: &'static str,
+    pub export_folder: &'static str,
+    pub export_download_folder: &'static str,
+    pub choose_folder: &'static str,
 }
 
 pub fn strings(lang: Lang) -> &'static Strings {
@@ -153,6 +164,17 @@ static RU: Strings = Strings {
     project_missing: "Проект не найден или повреждён",
     speaker_filter_hint: "Клик по спикеру подсвечивает его реплики",
     saved_at: "Сохранено в",
+    export: "Экспорт",
+    export_format: "Формат",
+    export_timestamps: "Таймстемпы",
+    export_audio: "Аудио",
+    export_audio_none: "Только текст",
+    export_audio_speakers: "По спикерам",
+    export_audio_segments: "Выбранные реплики",
+    export_audio_format: "Формат аудио",
+    export_folder: "Папка назначения",
+    export_download_folder: "Браузер скачает файл",
+    choose_folder: "Выбрать папку",
 };
 
 static EN: Strings = Strings {
@@ -217,4 +239,15 @@ static EN: Strings = Strings {
     project_missing: "Project is missing or damaged",
     speaker_filter_hint: "Click a speaker to highlight their lines",
     saved_at: "Saved at",
+    export: "Export",
+    export_format: "Format",
+    export_timestamps: "Timestamps",
+    export_audio: "Audio",
+    export_audio_none: "Text only",
+    export_audio_speakers: "Per speaker",
+    export_audio_segments: "Selected segments",
+    export_audio_format: "Audio format",
+    export_folder: "Destination",
+    export_download_folder: "The browser will download the file",
+    choose_folder: "Choose folder",
 };

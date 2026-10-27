@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use std::collections::HashSet;
 use ustt_core::Project;
 use ustt_ui_model::{Lang, Playback, ROW_HEIGHT, active_segment, strings, timecode, virtual_rows};
 use uuid::Uuid;
@@ -10,10 +11,11 @@ pub struct TranscriptProps {
     pub selected: Signal<Option<Uuid>>,
     pub on_seek: EventHandler<f64>,
     pub on_edit: EventHandler<(Uuid, String)>,
+    pub selected_segments: Signal<HashSet<Uuid>>,
 }
 
 #[component]
-pub fn Transcript(props: TranscriptProps) -> Element {
+pub fn Transcript(mut props: TranscriptProps) -> Element {
     let text = strings(props.lang);
     let playback = use_context::<Signal<Playback>>();
     let mut scroll_top = use_signal(|| 0.0f64);
@@ -119,6 +121,20 @@ pub fn Transcript(props: TranscriptProps) -> Element {
                                         draft.set(row_text.clone());
                                         editing.set(Some(segment_id));
                                     },
+                                    input {
+                                        r#type: "checkbox",
+                                        class: "segment-check",
+                                        "data-testid": "segment-select",
+                                        checked: (props.selected_segments)().contains(&segment_id),
+                                        onclick: move |evt| evt.stop_propagation(),
+                                        onchange: move |_| {
+                                            let mut next = (props.selected_segments)();
+                                            if !next.remove(&segment_id) {
+                                                next.insert(segment_id);
+                                            }
+                                            props.selected_segments.set(next);
+                                        },
+                                    }
                                     span { class: "time", "{timecode(start)}" }
                                     span { class: "dot", style: "background: {color}" }
                                     if editing_this {
