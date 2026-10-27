@@ -19,9 +19,9 @@ build it and use it.
 | VAD chunking, progress, cancellation | ready |
 | Segment building and speaker assignment | ready |
 | CLI (`ustt-cli`) | ready |
-| Desktop UI (Dioxus + WebView2) | ready for review |
+| Desktop UI (Dioxus + WebView2) | ready |
 | DOCX/PDF export, audio extraction | ready |
-| Portable ZIP and GitHub Actions release | next plan |
+| Portable ZIP and GitHub Actions release | ready (CI) |
 
 The core pipeline runs end to end today:
 
@@ -132,8 +132,9 @@ cd crates/app
 dx build --platform desktop --release
 ```
 
-Desktop packaging, WebView2 fallback and the GitHub Actions release are the
-next plan.
+Windows packaging is reproducible locally and in GitHub Actions; see
+`docs/BUILD-WINDOWS.md`. Windows acceptance under Wine/Proton is still a
+manual release gate.
 
 ## Build and test
 
@@ -146,6 +147,19 @@ cargo clippy --workspace --all-targets -- -D warnings
 
 Model-backed tests are `#[ignore]`d so a clean checkout stays green. Set
 `USTT_MODELS_DIR` (default `models`) and `ORT_DYLIB_PATH` to run them.
+
+## Windows portable build
+
+```powershell
+python scripts/fetch-win-deps.py --dest vendor/win64
+python scripts/package_release.py --deps vendor/win64 `
+  --manifest models/manifest.json --exe <path-to-universal-stt.exe> `
+  --out dist --version 0.1.0
+```
+
+Add `--allow-non-windows` only for a dry run of the packaging script.
+Full instructions, the manual checklist and known limitations are in
+`docs/BUILD-WINDOWS.md`.
 
 ## Export
 

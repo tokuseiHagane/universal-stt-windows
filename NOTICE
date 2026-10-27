@@ -45,3 +45,16 @@ Noto Sans
   License: SIL Open Font License 1.1
   https://github.com/notofonts/noto-fonts
   Embedded in the PDF exporter (crates/export/assets/NotoSans-Regular.ttf).
+
+Windows redistributables
+------------------------
+parakeet.cpp prebuilt Windows libraries (CPU/Vulkan)
+  License: MIT; https://github.com/mudler/parakeet.cpp
+
+FFmpeg LGPL shared build (BtbN)
+  License: LGPL 2.1+; https://github.com/BtbN/FFmpeg-Builds
+  Shipped as separate ffmpeg.exe/ffprobe.exe and av*.dll.
+
+Microsoft Edge WebView2 Runtime installer
+  Redistributed by Microsoft; see the Microsoft Edge WebView2 license terms.
+  https://developer.microsoft.com/microsoft-edge/webview2/
