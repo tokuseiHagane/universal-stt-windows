@@ -106,3 +106,20 @@ fn unassigned_segments_are_dropped_by_a_filter() {
     assert!(!filtered.iter().any(|l| l.text == "hello"));
     assert_eq!(lines(&p, None).len(), 3);
 }
+
+#[test]
+fn docx_is_a_zip_with_document_xml() {
+    let p = sample_project();
+    let bytes = ustt_export::render_docx(&p, &lines(&p, None), true).unwrap();
+    assert_eq!(&bytes[..2], b"PK");
+    assert!(bytes.len() > 2_000);
+}
+
+#[test]
+fn pdf_has_a_header_and_cyrillic_text() {
+    let mut p = sample_project();
+    p.title = "Тестовая запись".into();
+    let bytes = ustt_export::render_pdf(&p, &lines(&p, None), true).unwrap();
+    assert_eq!(&bytes[..4], b"%PDF");
+    assert!(bytes.len() > 4_000);
+}
