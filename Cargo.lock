@@ -452,6 +452,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ustt-diarize"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
 name = "ustt-media"
 version = "0.1.0"
 dependencies = [
