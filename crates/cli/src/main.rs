@@ -62,7 +62,9 @@ fn process(args: &[String]) -> Result<(), String> {
     let input = args.get(1).ok_or("process needs a file")?;
     let project = flag(args, "--project").ok_or("--project is required")?;
     let models = flag(args, "--models").ok_or("--models is required")?;
-    let backend_arg = flag(args, "--backend").unwrap_or_else(|| "auto".into());
+    let backend_arg = flag(args, "--backend")
+        .or_else(|| std::env::var("USTT_BACKEND").ok())
+        .unwrap_or_else(|| "auto".into());
     let pref = match backend_arg.as_str() {
         "auto" => BackendPreference::Auto,
         "cpu" => BackendPreference::Cpu,

@@ -174,6 +174,9 @@ impl Meta {
             return Err(DiarizeError::Model("no windows in who_meta".into()));
         }
         let downsample = self.frames.downsample;
+        if downsample == 0 {
+            return Err(DiarizeError::Model("frames.downsample is zero".into()));
+        }
         for window in &self.windows {
             if window.frames == 0 || window.low != window.frames / downsample {
                 return Err(DiarizeError::Model(format!(

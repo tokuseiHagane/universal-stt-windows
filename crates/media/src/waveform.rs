@@ -28,7 +28,7 @@ impl Waveform {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MediaError> {
-        if bytes.len() < 16 || &bytes[0..6] != b"USTTW1" {
+        if bytes.len() < 18 || &bytes[0..6] != b"USTTW1" {
             return Err(MediaError::Waveform("bad magic or truncated header".into()));
         }
         let bucket_ms = u32::from_le_bytes(bytes[6..10].try_into().unwrap());

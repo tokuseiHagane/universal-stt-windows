@@ -11,6 +11,7 @@ use crate::pieces;
 use crate::session::{Sessions, Tensor};
 use crate::voices;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use ustt_core::{Diarization, Turn};
 
 pub struct WhoModel {
@@ -77,13 +78,37 @@ impl WhoModel {
         progress: &mut dyn FnMut(f32),
     ) -> Result<Diarization, DiarizeError> {
         let audio = resample_linear(samples, sample_rate, self.meta.audio.sample_rate);
-        let seconds = audio.len() as f64 / self.meta.audio.sample_rate as f64;
-        let (means, mel_frames) = self.frontend.means(&audio);
+        let total = audio.len();
+        let mut read = |start: usize, count: usize| {
+            let end = start.saturating_add(count).min(total);
+            Ok(audio.get(start..end).unwrap_or(&[]).to_vec())
+        };
+        self.diarize_stream(total, &mut read, None, progress)
+    }
+
+    /// Streams a 16 kHz mono recording through the model one window at a time.
+    /// `read` returns `count` samples from `start`, so callers can back it with
+    /// a file and never hold the whole recording.
+    pub fn diarize_stream(
+        &mut self,
+        total_samples: usize,
+        read: &mut dyn FnMut(usize, usize) -> Result<Vec<f32>, DiarizeError>,
+        cancel: Option<&AtomicBool>,
+        progress: &mut dyn FnMut(f32),
+    ) -> Result<Diarization, DiarizeError> {
+        let rate = self.meta.audio.sample_rate as f64;
+        let seconds = total_samples as f64 / rate;
+        let geometry = self.frontend.geometry();
+        let (means, mel_frames) = stream_means(&self.frontend, total_samples, read, cancel)?;
         if mel_frames == 0 {
             return Err(DiarizeError::Model(
                 "audio is shorter than one frame".into(),
             ));
         }
+        let voice_means = match self.voice_frontend.as_ref() {
+            Some(frontend) => Some(stream_means(frontend, total_samples, read, cancel)?.0),
+            None => None,
+        };
         let decision = Decision::from_meta(&self.meta.decision);
         let clock = FrameClock {
             step: self.meta.frames.step_s,
@@ -96,40 +121,20 @@ impl WhoModel {
             .map(|w| w.frames)
             .ok_or_else(|| DiarizeError::Model("no windows".into()))?;
         let pieces = pieces::cut(mel_frames, longest);
-
-        if pieces.len() == 1 {
-            let logits = compute_logits(
-                &mut self.sessions,
-                &self.meta,
-                &self.frontend,
-                &audio,
-                pieces[0].clone(),
-                &means,
-            )?;
-            let stretches = decision.stretches(
-                &sigmoid(&logits.presence),
-                &sigmoid(&logits.masks),
-                pieces[0].len(),
-            );
-            progress(1.0);
-            return Ok(Self::finish(
-                stretches
-                    .into_iter()
-                    .map(|stretch| labelled(stretch, &clock, 0.0, stretch.query as i64))
-                    .collect(),
-                seconds,
-            ));
-        }
-
         let mut lanes: Vec<Lane> = Vec::new();
         let piece_count = pieces.len();
-        for (index, piece) in pieces.into_iter().enumerate() {
+
+        for (index, piece) in pieces.iter().enumerate() {
+            check_cancel(cancel)?;
+            let start = piece.start * geometry.shift;
+            let count = geometry.frame + (piece.len() - 1) * geometry.shift;
+            let window = read(start, count)?;
             let logits = compute_logits(
                 &mut self.sessions,
                 &self.meta,
                 &self.frontend,
-                &audio,
-                piece.clone(),
+                &window,
+                0..piece.len(),
                 &means,
             )?;
             let masks = sigmoid(&logits.masks);
@@ -186,10 +191,13 @@ impl WhoModel {
             &mut self.sessions,
             &self.meta,
             &lanes,
-            &audio,
+            voice_means.as_deref().unwrap_or(&[]),
+            read,
+            total_samples,
             mel_frames,
             self.voice_frontend.as_ref().unwrap(),
             self.embedding.as_ref().unwrap(),
+            cancel,
             progress,
         )?;
         let mut turns = Vec::new();
@@ -209,14 +217,17 @@ impl WhoModel {
         sessions: &mut Sessions,
         meta: &Meta,
         lanes: &[Lane],
-        audio: &[f32],
+        voice_means: &[f32],
+        read: &mut dyn FnMut(usize, usize) -> Result<Vec<f32>, DiarizeError>,
+        total_samples: usize,
         mel_frames: usize,
         voice_frontend: &Frontend,
         embedding: &Embedding,
+        cancel: Option<&AtomicBool>,
         progress: &mut dyn FnMut(f32),
     ) -> Result<Vec<i64>, DiarizeError> {
         let per_column = meta.voice.mel_frames_per_column;
-        let (voice_means, voice_frames) = voice_frontend.means(audio);
+        let voice_frames = voice_frontend.frames(total_samples);
         let used = mel_frames.min(voice_frames) / per_column * per_column;
         let columns = used / per_column;
         let mels = voice_frontend.geometry().mels;
@@ -240,14 +251,15 @@ impl WhoModel {
         let windows = voices::windows(used, width, margin, per_column);
         let window_count = windows.len();
         for (index, window) in windows.into_iter().enumerate() {
+            check_cancel(cancel)?;
             let mut input = vec![0.0f32; width * mels];
             let available = width.min(used.saturating_sub(window.start));
             if available > 0 {
-                let features = voice_frontend.features(
-                    audio,
-                    window.start..window.start + available,
-                    &voice_means,
-                );
+                let geometry = voice_frontend.geometry();
+                let start = window.start * geometry.shift;
+                let count = geometry.frame + (available - 1) * geometry.shift;
+                let samples = read(start, count)?;
+                let features = voice_frontend.features(&samples, 0..available, voice_means);
                 input[..features.len()].copy_from_slice(&features);
             }
             let outputs = sessions.run(
@@ -357,6 +369,50 @@ fn labelled(stretch: Stretch, clock: &FrameClock, offset: f64, label: i64) -> La
         end: end + offset,
         label,
     }
+}
+
+fn check_cancel(cancel: Option<&AtomicBool>) -> Result<(), DiarizeError> {
+    match cancel {
+        Some(flag) if flag.load(Ordering::Relaxed) => Err(DiarizeError::Cancelled),
+        _ => Ok(()),
+    }
+}
+
+fn stream_means(
+    frontend: &Frontend,
+    total_samples: usize,
+    read: &mut dyn FnMut(usize, usize) -> Result<Vec<f32>, DiarizeError>,
+    cancel: Option<&AtomicBool>,
+) -> Result<(Vec<f32>, usize), DiarizeError> {
+    let geometry = frontend.geometry();
+    let total = frontend.frames(total_samples);
+    let mels = geometry.mels;
+    let mut sums = vec![0.0f64; mels];
+    let mut first = 0;
+    while first < total {
+        check_cancel(cancel)?;
+        let count = 6000.min(total - first);
+        let start = first * geometry.shift;
+        let samples = read(start, geometry.frame + (count - 1) * geometry.shift)?;
+        let mel = frontend.mel(&samples, 0, count);
+        for (m, sum) in sums.iter_mut().enumerate() {
+            let mut acc = 0.0f64;
+            for f in 0..count {
+                acc += mel[f * mels + m] as f64;
+            }
+            *sum += acc;
+        }
+        first += count;
+    }
+    if total == 0 {
+        return Ok((vec![0.0; mels], 0));
+    }
+    Ok((
+        sums.into_iter()
+            .map(|s| (s / total as f64) as f32)
+            .collect(),
+        total,
+    ))
 }
 
 fn resample_linear(samples: &[f32], from: u32, to: u32) -> Vec<f32> {

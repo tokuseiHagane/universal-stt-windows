@@ -104,12 +104,11 @@ pub fn verify_models(dir: &Path) -> Vec<ModelCheck> {
                 }];
             }
         },
-        Err(_) => DEFAULT_FILES
-            .iter()
-            .copied()
-            .chain(WHO_FILES.iter().copied())
+        Err(_) => std::iter::once("manifest.json".to_string())
+            .chain(DEFAULT_FILES.iter().map(|name| (*name).to_string()))
+            .chain(WHO_FILES.iter().map(|name| format!("who/{name}")))
             .map(|name| ModelFile {
-                name: name.to_string(),
+                name,
                 sha256: String::new(),
                 bytes: 0,
             })

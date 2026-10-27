@@ -78,3 +78,16 @@ fn equal_overlap_picks_earliest_turn() {
     let ids = vec![Uuid::from_u128(5), Uuid::from_u128(7)];
     assert_eq!(assign_speaker(0.9, 1.1, &turns, &ids), Some(ids[0]));
 }
+
+#[test]
+fn segment_end_never_precedes_start_without_probe_duration() {
+    let words = vec![Word {
+        start: 5.0,
+        end: 6.0,
+        text: "late".into(),
+        confidence: None,
+    }];
+    let segments = build_segments(&words, &[], &[], 0.0);
+    assert_eq!(segments.len(), 1);
+    assert!(segments[0].end >= segments[0].start);
+}

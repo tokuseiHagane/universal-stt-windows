@@ -5,12 +5,15 @@ use crate::progress::{Phase, Progress, estimate_eta};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
-use ustt_asr::{AsrEngine, AsrError, ParakeetLib, VadEngine, transcribe_chunks};
+use ustt_asr::{AsrEngine, AsrError, ParakeetLib, VadEngine, transcribe_chunks_cancellable};
 use ustt_core::{MediaKind, Project, SourceRef, speakers_from_diarization};
 use ustt_core::{ProjectStore, StoreError};
 use ustt_diarize::{DiarizeError, WhoModel};
 use ustt_media::{MediaError, Tools};
-use ustt_media::{decode_wav16k, make_proxy, probe, read_wav_mono16k, waveform_from_wav};
+use ustt_media::{
+    decode_wav16k, make_proxy, probe, read_wav_mono16k_range, wav_mono16k_samples,
+    waveform_from_wav,
+};
 
 pub struct ImportRequest {
     pub input: PathBuf,
@@ -107,12 +110,14 @@ pub fn run_import(
     decode_wav16k(&tools, &req.input, &wav)?;
     let waveform = waveform_from_wav(&wav, 20)?;
     std::fs::write(media_dir.join("waveform.bin"), waveform.to_bytes())?;
+    let total_samples = wav_mono16k_samples(&wav)?;
+    let duration = info.duration.max(total_samples as f64 / 16_000.0);
+    project.duration = duration;
     emit(Progress::new(Phase::Decode, 1.0, "decoded"));
     if cancel.load(Ordering::Relaxed) {
         return Err(PipelineError::Cancelled);
     }
 
-    let samples = read_wav_mono16k(&wav)?;
     let diarization = std::thread::scope(|scope| {
         let proxy_handle = req.make_proxy.then(|| {
             let tools = &tools;
@@ -123,9 +128,20 @@ pub fn run_import(
         });
         emit(Progress::new(Phase::Proxy, 0.1, "preparing playback"));
         let mut who = WhoModel::load(&req.models.who_dir)?;
-        let diarization = who.diarize(&samples, 16_000, &mut |fraction| {
-            emit(Progress::new(Phase::Diarize, fraction, "diarizing"));
-        })?;
+        let diarization = who
+            .diarize_stream(
+                total_samples,
+                &mut |start, count| {
+                    read_wav_mono16k_range(&wav, start, count)
+                        .map_err(|e| DiarizeError::Model(e.to_string()))
+                },
+                Some(cancel),
+                &mut |fraction| emit(Progress::new(Phase::Diarize, fraction, "diarizing")),
+            )
+            .map_err(|e| match e {
+                DiarizeError::Cancelled => PipelineError::Cancelled,
+                other => other.into(),
+            })?;
         let mut proxy = None;
         if let Some(handle) = proxy_handle {
             proxy = Some(handle.join().map_err(|_| PipelineError::Worker)??);
@@ -149,16 +165,24 @@ pub fn run_import(
     let lib = std::sync::Arc::new(ParakeetLib::open(&lib_path)?);
     let mut asr = AsrEngine::load(lib.clone(), &req.models.asr_model)?;
     let mut vad = VadEngine::load(lib, &req.models.silero_vad)?;
-    let transcript = transcribe_chunks(&mut asr, &mut vad, &wav, 30.0, &mut |fraction| {
-        let elapsed = started.elapsed().as_secs_f64();
-        let processed = info.duration * 0.15 + info.duration * 0.6 * fraction as f64;
-        emit(
-            Progress::new(Phase::Transcribe, fraction, "transcribing").with_eta(estimate_eta(
-                processed,
-                info.duration,
-                elapsed,
-            )),
-        );
+    let transcript = transcribe_chunks_cancellable(
+        &mut asr,
+        &mut vad,
+        &wav,
+        30.0,
+        Some(cancel),
+        &mut |fraction| {
+            let elapsed = started.elapsed().as_secs_f64();
+            let processed = duration * 0.15 + duration * 0.6 * fraction as f64;
+            emit(
+                Progress::new(Phase::Transcribe, fraction, "transcribing")
+                    .with_eta(estimate_eta(processed, duration, elapsed)),
+            );
+        },
+    )
+    .map_err(|e| match e {
+        AsrError::Cancelled => PipelineError::Cancelled,
+        other => other.into(),
     })?;
     if cancel.load(Ordering::Relaxed) {
         return Err(PipelineError::Cancelled);
@@ -167,8 +191,9 @@ pub fn run_import(
     emit(Progress::new(Phase::Merge, 0.3, "merging"));
     project.speakers = speakers_from_diarization(&diarization);
     let ids: Vec<_> = project.speakers.iter().map(|s| s.id).collect();
-    project.segments = build_segments(&transcript.words, &diarization.turns, &ids, info.duration);
+    project.segments = build_segments(&transcript.words, &diarization.turns, &ids, duration);
     project.turns = diarization.turns.clone();
+    project.duration = duration;
     project.language = transcript.language.clone();
     store.save(&mut project)?;
     emit(Progress::new(Phase::Merge, 1.0, "merged"));

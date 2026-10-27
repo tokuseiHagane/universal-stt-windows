@@ -10,7 +10,7 @@ pub use probe::{AudioStream, MediaInfo, VideoStream, probe};
 pub use proxy::{ProxyInfo, make_proxy, select_video_encoder};
 pub use tools::Tools;
 pub use ustt_core::MediaKind;
-pub use wav::{read_wav_mono16k, write_wav_mono16k};
+pub use wav::{read_wav_mono16k, read_wav_mono16k_range, wav_mono16k_samples, write_wav_mono16k};
 pub use waveform::{Peak, Waveform, WaveformBuilder, waveform_from_samples, waveform_from_wav};
 
 #[derive(Debug, thiserror::Error)]

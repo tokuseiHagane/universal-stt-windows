@@ -17,8 +17,20 @@ pub fn transcribe_chunks(
     max_len_s: f64,
     progress: &mut dyn FnMut(f32),
 ) -> Result<AsrJson, AsrError> {
-    let samples = ustt_media::read_wav_mono16k(wav).map_err(|e| AsrError::Model(e.to_string()))?;
-    let duration = samples.len() as f64 / 16_000.0;
+    transcribe_chunks_cancellable(engine, vad, wav, max_len_s, None, progress)
+}
+
+pub fn transcribe_chunks_cancellable(
+    engine: &mut AsrEngine,
+    vad: &mut VadEngine,
+    wav: &Path,
+    max_len_s: f64,
+    cancel: Option<&std::sync::atomic::AtomicBool>,
+    progress: &mut dyn FnMut(f32),
+) -> Result<AsrJson, AsrError> {
+    let total_samples =
+        ustt_media::wav_mono16k_samples(wav).map_err(|e| AsrError::Model(e.to_string()))?;
+    let duration = total_samples as f64 / 16_000.0;
     let ranges = vad.speech_ranges(wav)?;
     let chunks = chunk_ranges(&ranges, max_len_s, duration);
     if chunks.is_empty() {
@@ -34,14 +46,19 @@ pub fn transcribe_chunks(
     let mut done = 0.0;
     let mut out = Vec::with_capacity(chunks.len());
     for range in chunks {
+        if cancel.is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Relaxed)) {
+            return Err(AsrError::Cancelled);
+        }
         let first = (range.start * 16_000.0).floor().max(0.0) as usize;
-        let last = ((range.end * 16_000.0).ceil() as usize).min(samples.len());
-        let slice = &samples[first.min(samples.len())..last.max(first.min(samples.len()))];
+        let last = ((range.end * 16_000.0).ceil() as usize).min(total_samples);
+        let count = last.saturating_sub(first.min(last));
+        let slice = ustt_media::read_wav_mono16k_range(wav, first, count)
+            .map_err(|e| AsrError::Model(e.to_string()))?;
         let file = tempfile::Builder::new()
             .prefix("ustt-chunk-")
             .suffix(".wav")
             .tempfile()?;
-        ustt_media::write_wav_mono16k(file.path(), slice)
+        ustt_media::write_wav_mono16k(file.path(), &slice)
             .map_err(|e| AsrError::Model(e.to_string()))?;
         let json = engine.transcribe_wav(file.path())?;
         file.close().ok();
@@ -64,6 +81,8 @@ pub enum AsrError {
     Model(String),
     #[error("invalid asr json: {0}")]
     Json(#[from] serde_json::Error),
+    #[error("cancelled")]
+    Cancelled,
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 }

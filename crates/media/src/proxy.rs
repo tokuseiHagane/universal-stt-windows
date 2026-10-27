@@ -21,8 +21,12 @@ pub fn select_video_encoder(tools: &Tools) -> Result<&'static str, MediaError> {
         ));
     }
     let list = String::from_utf8_lossy(&output.stdout);
-    for candidate in ["h264_mf", "libx264", "libvpx-vp9"] {
-        if list.contains(candidate) {
+    let names: Vec<&str> = list
+        .lines()
+        .filter_map(|line| line.split_whitespace().nth(1))
+        .collect();
+    for candidate in ["h264_mf", "libvpx-vp9"] {
+        if names.contains(&candidate) {
             return Ok(candidate);
         }
     }
@@ -69,11 +73,7 @@ pub fn make_proxy(
                 "-cpu-used",
                 "8",
             ]);
-            cmd.args(["-c:a", "aac", "-b:a", "128k"]);
-        }
-        Some("libx264") => {
-            cmd.args(["-c:v", "libx264", "-b:v", "2M", "-preset", "veryfast"]);
-            cmd.args(["-c:a", "aac", "-b:a", "128k"]);
+            cmd.args(["-c:a", "libopus", "-b:a", "96k"]);
         }
         Some(other) => {
             cmd.args(["-c:v", other, "-b:v", "2M"]);

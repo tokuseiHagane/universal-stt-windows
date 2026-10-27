@@ -124,6 +124,11 @@ impl Frontend {
         out
     }
 
+    /// Raw (not mean-removed) log-mel for frames `first..first+frames`.
+    pub fn mel(&self, samples: &[f32], first: usize, frames: usize) -> Vec<f32> {
+        self.log_mel(samples, first, frames)
+    }
+
     /// Both passes over a recording short enough to hold whole.
     pub fn features_all(&self, samples: &[f32]) -> (Vec<f32>, usize) {
         let (means, total) = self.means(samples);

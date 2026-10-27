@@ -117,8 +117,8 @@ own licenses:
 - **ONNX Runtime** — MIT.
 - **FFmpeg** — the shipped build is LGPL; FFmpeg runs as a separate
   executable, so this repository's MIT code is unaffected.
-- **Test audio** — LibriSpeech (CC-BY-4.0), LJSpeech (public domain), and the
-  JFK sample from whisper.cpp (public domain). See `NOTICE`.
+- **Test audio** — LJSpeech (public domain) and the JFK sample from
+  whisper.cpp (public domain). See `NOTICE`.
 
 `Universal STT` is not affiliated with Desert Ant Labs, NVIDIA, or the
 parakeet.cpp project.

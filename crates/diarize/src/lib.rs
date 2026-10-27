@@ -28,6 +28,8 @@ pub enum DiarizeError {
     Model(String),
     #[error("onnx runtime: {0}")]
     Ort(String),
+    #[error("cancelled")]
+    Cancelled,
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 }

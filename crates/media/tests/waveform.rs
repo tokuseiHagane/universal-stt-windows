@@ -36,3 +36,10 @@ fn waveform_bytes_roundtrip() {
     let w = waveform_from_samples(&[0.0, 1.0, -1.0, 0.5], 16_000, 20);
     assert_eq!(Waveform::from_bytes(&w.to_bytes()).unwrap(), w);
 }
+
+#[test]
+fn truncated_header_is_an_error() {
+    let mut bytes = b"USTTW1".to_vec();
+    bytes.extend_from_slice(&[0u8; 10]);
+    assert!(Waveform::from_bytes(&bytes).is_err());
+}

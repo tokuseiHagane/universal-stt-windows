@@ -81,7 +81,7 @@ fn video_proxy_uses_an_available_encoder() {
 }
 
 #[test]
-fn select_video_encoder_reports_vp9_on_linux() {
+fn select_video_encoder_stays_lgpl_safe() {
     let enc = select_video_encoder(&Tools::locate(None).unwrap()).unwrap();
-    assert!(matches!(enc, "h264_mf" | "libx264" | "libvpx-vp9"));
+    assert!(matches!(enc, "h264_mf" | "libvpx-vp9"));
 }

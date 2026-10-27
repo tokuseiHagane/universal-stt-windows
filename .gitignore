@@ -5,3 +5,5 @@
 /lib/
 *.ustt/
 *.ustt.partial/
+__pycache__/
+*.pyc

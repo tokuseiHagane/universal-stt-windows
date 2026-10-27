@@ -67,3 +67,30 @@ fn imports_two_speaker_clip_end_to_end() {
             })
     );
 }
+
+#[test]
+#[ignore = "needs models, libparakeet and fixture"]
+fn cancel_mid_run_removes_partial_project() {
+    let tmp = tempfile::tempdir().unwrap();
+    let req = ImportRequest {
+        input: fixture("two_speakers.wav"),
+        project_dir: tmp.path().join("c.ustt"),
+        models: resolve_models(&models_dir(), Backend::Cpu).unwrap(),
+        backend: Backend::Cpu,
+        make_proxy: false,
+    };
+    let cancel = AtomicBool::new(false);
+    let err = run_import(&req, &cancel, &mut |p| {
+        if p.phase == ustt_pipeline::progress::Phase::Transcribe {
+            cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    })
+    .unwrap_err();
+    assert!(matches!(
+        err,
+        ustt_pipeline::import::PipelineError::Cancelled
+    ));
+    assert!(!req.project_dir.exists());
+    let partial = std::path::PathBuf::from(format!("{}.partial", req.project_dir.display()));
+    assert!(!partial.exists());
+}

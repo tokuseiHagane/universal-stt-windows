@@ -32,6 +32,9 @@ pub fn windows(
     }
     let mut out = Vec::new();
     let mut kept = 0;
+    if width == 0 || per_column == 0 || 2 * margin >= width || width > mel_frames {
+        return Vec::new();
+    }
     let mut start = 0;
     while kept < columns {
         let last = start + width >= mel_frames;
@@ -49,6 +52,9 @@ pub fn windows(
             keep_high: end - start / per_column,
             place_low: kept,
         });
+        if end <= kept {
+            break;
+        }
         kept = end;
         start += width - 2 * margin;
     }

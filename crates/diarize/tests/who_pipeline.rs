@@ -79,12 +79,24 @@ fn harmonic_signal(seconds: f64, sample_rate: u32) -> Vec<f32> {
 
 #[test]
 #[ignore = "needs models"]
-fn diarize_700s_uses_two_pieces() {
+fn diarize_700s_streams_multiple_pieces() {
     let mut model = WhoModel::load(models_dir().join("who")).unwrap();
     let samples = harmonic_signal(700.0, 16_000);
     let mut last = 0.0f32;
-    let result = model.diarize(&samples, 16_000, &mut |p| last = p).unwrap();
+    let mut piece_ticks = 0;
+    let result = model
+        .diarize(&samples, 16_000, &mut |p| {
+            last = p;
+            if p <= 0.6001 {
+                piece_ticks += 1;
+            }
+        })
+        .unwrap();
     assert!(last >= 0.999);
+    assert!(
+        piece_ticks >= 3,
+        "expected several pieces, saw {piece_ticks}"
+    );
     assert!((result.duration - 700.0).abs() < 1.0);
     for turn in &result.turns {
         assert!(turn.start >= 0.0 && turn.end <= 701.0 && turn.end > turn.start);

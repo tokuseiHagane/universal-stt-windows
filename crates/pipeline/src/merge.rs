@@ -10,6 +10,7 @@ pub fn build_segments(
     speaker_ids: &[Uuid],
     duration: f64,
 ) -> Vec<Segment> {
+    let duration = duration.max(words.last().map(|w| w.end).unwrap_or(0.0));
     let mut out = Vec::new();
     let mut current: Option<Vec<&Word>> = None;
     let mut start = 0.0;
@@ -40,7 +41,12 @@ pub fn build_segments(
 
 fn make_segment(words: &[&Word], turns: &[Turn], speaker_ids: &[Uuid], duration: f64) -> Segment {
     let start = words.first().map(|w| w.start).unwrap_or(0.0);
-    let end = words.last().map(|w| w.end).unwrap_or(start).min(duration);
+    let end = words
+        .last()
+        .map(|w| w.end)
+        .unwrap_or(start)
+        .min(duration)
+        .max(start);
     Segment {
         id: Uuid::new_v4(),
         start,
