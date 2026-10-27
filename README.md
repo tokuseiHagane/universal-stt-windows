@@ -19,7 +19,7 @@ build it and use it.
 | VAD chunking, progress, cancellation | ready |
 | Segment building and speaker assignment | ready |
 | CLI (`ustt-cli`) | ready |
-| Desktop UI (Dioxus + WebView2) | next plan |
+| Desktop UI (Dioxus + WebView2) | ready for review |
 | DOCX/PDF export, audio extraction | next plan |
 | Portable ZIP and GitHub Actions release | next plan |
 
@@ -84,6 +84,56 @@ ustt-cli doctor --models models
 ustt-cli process <file> --project <dir>.ustt --models models \
   [--backend auto|cpu|vulkan|cuda] [--no-proxy]
 ```
+
+## Desktop UI
+
+The Dioxus 0.7 app lives in `crates/app`; pure UI logic lives in
+`crates/ui-model` and is unit-tested without a browser.
+
+```bash
+./scripts/install-tools.sh        # wasm target, dioxus-cli 0.7.10, Playwright
+cd crates/app
+dx serve --platform desktop       # native window (WebView2 on Windows)
+dx build --platform web --release # wasm demo used by Playwright
+```
+
+In the app:
+
+| Keys | Action |
+|------|--------|
+| `Space` | play / pause |
+| `←` / `→` | ±5 s |
+| `Shift+←` / `Shift+→` | ±30 s |
+| `Home` / `End` | start / end |
+| `Ctrl+S` | save project |
+| `Ctrl+Z` | undo |
+| `Ctrl+Shift+Z`, `Ctrl+Y` | redo |
+
+The web target is a demo backed by `MockService`; it cannot touch the
+filesystem. It exists so the same Rust UI can be checked in Chromium.
+
+### UI tests
+
+```bash
+npm install
+npx playwright install chromium
+npm test
+```
+
+`scripts/serve-web.sh` builds the release wasm bundle and serves it with
+Range support, which the player needs for seeking.
+
+### Windows build
+
+On Windows with the MSVC toolchain:
+
+```powershell
+cd crates/app
+dx build --platform desktop --release
+```
+
+Desktop packaging, WebView2 fallback and the GitHub Actions release are the
+next plan.
 
 ## Build and test
 
