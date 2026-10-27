@@ -17,6 +17,7 @@ web = ["dioxus/web"]
 chrono.workspace = true
 dioxus = { version = "0.7.10" }
 futures-timer = "3"
+serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
@@ -24,6 +25,7 @@ ustt-core = { path = "../core" }
 ustt-ui-model = { path = "../ui-model" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tempfile = "3"
 dirs = { version = "6", optional = true }
 rfd = { version = "0.15", optional = true }
 ustt-media = { path = "../media" }

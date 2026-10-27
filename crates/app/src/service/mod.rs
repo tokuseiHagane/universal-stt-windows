@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use ustt_core::{MediaKind, Project, RecentEntry, Settings};
-use ustt_ui_model::ProgressView;
+use ustt_ui_model::{ProgressView, WaveData};
 
 pub mod media;
 #[cfg(target_arch = "wasm32")]
@@ -56,6 +56,7 @@ pub trait Service: Send + Sync {
     fn open(&self, dir: &Path) -> Result<(StoreHandle, Project), String>;
     fn save(&self, store: &StoreHandle, project: &mut Project) -> Result<(), String>;
     fn media_url(&self, store: &StoreHandle, asset: MediaAsset) -> Option<String>;
+    fn waveform(&self, store: &StoreHandle) -> Option<WaveData>;
     fn project_root(&self, store: &StoreHandle) -> Option<PathBuf>;
     fn demo_available(&self) -> bool;
     fn demo(&self, kind: MediaKind) -> Option<(StoreHandle, Project)>;

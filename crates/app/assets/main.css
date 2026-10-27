@@ -231,3 +231,5 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .section-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin-right: 4px; }
 .transcript-row { height: 64px; }
 .timeline-placeholder { height: 170px; }
+
+.playhead { transition: transform 70ms linear; }

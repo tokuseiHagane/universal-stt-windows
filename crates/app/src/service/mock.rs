@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::mpsc;
 use ustt_core::{MediaKind, Project, RecentEntry, Segment, Settings, SourceRef, Speaker, Word};
-use ustt_ui_model::{PhaseView, ProgressView};
+use ustt_ui_model::{PhaseView, ProgressView, WaveData, WavePoint};
 use uuid::Uuid;
 
 const DEMO_AUDIO: Asset = asset!("/assets/demo/audio.wav");
@@ -131,6 +131,22 @@ impl Service for MockService {
             (_, MediaAsset::Audio | MediaAsset::Proxy) => Some(DEMO_AUDIO.to_string()),
             (_, MediaAsset::Waveform) => None,
         }
+    }
+
+    fn waveform(&self, _store: &StoreHandle) -> Option<WaveData> {
+        let peaks = (0..150)
+            .map(|i| {
+                let base = ((i as f32) * 0.31).sin().abs() * 0.7 + 0.08;
+                WavePoint {
+                    min: -base,
+                    max: base,
+                }
+            })
+            .collect();
+        Some(WaveData {
+            bucket_ms: 20,
+            peaks,
+        })
     }
 
     fn project_root(&self, _store: &StoreHandle) -> Option<PathBuf> {

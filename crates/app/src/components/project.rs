@@ -1,11 +1,13 @@
+use super::player;
 use super::speakers::SpeakerBar;
+use super::timeline::Timeline;
 use super::transcript::Transcript;
 use crate::service::{MediaAsset, Service, StoreHandle};
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use std::sync::Arc;
 use ustt_core::{History, Project};
-use ustt_ui_model::{Lang, Playback, strings};
+use ustt_ui_model::{Lang, Playback, WaveData, strings};
 
 pub struct ProjectSession {
     pub store: StoreHandle,
@@ -13,18 +15,21 @@ pub struct ProjectSession {
     pub saved_at: Option<DateTime<Utc>>,
     pub audio_url: Option<String>,
     pub proxy_url: Option<String>,
+    pub wave: WaveData,
 }
 
 impl ProjectSession {
     pub fn new(store: StoreHandle, project: Project, service: &dyn Service) -> Self {
         let audio_url = service.media_url(&store, MediaAsset::Audio);
         let proxy_url = service.media_url(&store, MediaAsset::Proxy);
+        let wave = service.waveform(&store).unwrap_or_default();
         Self {
             store,
             history: History::new(project, 100),
             saved_at: None,
             audio_url,
             proxy_url,
+            wave,
         }
     }
 
@@ -95,8 +100,9 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
     let seek = {
         let playback = playback;
         move |seconds: f64| {
-            let mut player = playback;
-            player.write().seek(seconds);
+            let mut state = playback;
+            state.write().seek(seconds);
+            player::seek(seconds);
         }
     };
 
@@ -137,6 +143,16 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
         .as_ref()
         .map(|s| s.history.can_redo())
         .unwrap_or(false);
+    let audio_url = session
+        .read()
+        .as_ref()
+        .and_then(|s| s.audio_url.clone())
+        .unwrap_or_default();
+    let wave = session
+        .read()
+        .as_ref()
+        .map(|s| s.wave.clone())
+        .unwrap_or_default();
 
     rsx! {
         section { class: "project", "data-testid": "project",
@@ -162,14 +178,23 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
             div { class: "project-body audio",
                 Transcript {
                     lang: props.lang,
-                    project,
+                    project: project.clone(),
                     selected: selected_speaker,
                     on_seek: seek,
                     on_edit: edit_text,
                 }
             }
-            div { class: "bottom",
-                div { class: "timeline-placeholder" }
+            audio {
+                id: "player",
+                src: "{audio_url}",
+                preload: "metadata",
+                style: "display:none;",
+            }
+            Timeline {
+                lang: props.lang,
+                project,
+                wave,
+                on_seek: seek,
             }
         }
     }

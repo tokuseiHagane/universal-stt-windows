@@ -7,7 +7,7 @@ use ustt_core::{MediaKind, Project, ProjectStore, RecentEntry, RecentStore, Sett
 use ustt_pipeline::backend::detect;
 use ustt_pipeline::import::{ImportRequest, PipelineError, run_import};
 use ustt_pipeline::models::resolve_models;
-use ustt_ui_model::{PhaseView, ProgressView};
+use ustt_ui_model::{PhaseView, ProgressView, WaveData, WavePoint};
 
 #[derive(Debug, thiserror::Error)]
 pub enum NativeError {
@@ -200,6 +200,22 @@ impl Service for NativeService {
         registry
             .resolve(&MediaRegistryUrl::of(token))
             .map(|_| MediaRegistryUrl::of(token))
+    }
+
+    fn waveform(&self, store: &StoreHandle) -> Option<WaveData> {
+        let bytes = std::fs::read(store.media_dir().join("waveform.bin")).ok()?;
+        let wave = ustt_media::Waveform::from_bytes(&bytes).ok()?;
+        Some(WaveData {
+            bucket_ms: wave.bucket_ms,
+            peaks: wave
+                .peaks
+                .into_iter()
+                .map(|p| WavePoint {
+                    min: p.min,
+                    max: p.max,
+                })
+                .collect(),
+        })
     }
 
     fn project_root(&self, store: &StoreHandle) -> Option<PathBuf> {

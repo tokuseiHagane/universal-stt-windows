@@ -1,3 +1,4 @@
+use crate::components::player;
 use crate::components::processing::Processing;
 use crate::components::project::{ProjectSession, ProjectView};
 use crate::components::welcome::Welcome;
@@ -106,6 +107,93 @@ pub fn App() -> Element {
         });
     }
 
+    let key_service = service.clone();
+    use_effect(move || {
+        let service = key_service.clone();
+        spawn(async move {
+            const KEYS: &str = r#"
+(async () => {
+  if (window.__usttKeys) document.removeEventListener("keydown", window.__usttKeys);
+  window.__usttKeys = (event) => {
+    const tag = (event.target && event.target.tagName) || "";
+    if (["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return;
+    const key = event.key;
+    if (key === " " || key.startsWith("Arrow") || key === "Home" || key === "End") {
+      event.preventDefault();
+    }
+    dioxus.send({
+      key,
+      ctrl: event.ctrlKey || event.metaKey,
+      shift: event.shiftKey,
+    });
+  };
+  document.addEventListener("keydown", window.__usttKeys);
+})();
+"#;
+            let mut eval = document::eval(KEYS);
+            while let Ok(key) = eval.recv::<KeyMsg>().await {
+                if screen() != Screen::Project {
+                    continue;
+                }
+                match (key.ctrl, key.key.as_str()) {
+                    (true, "s") | (true, "S") => {
+                        if let Some(state) = session.write().as_mut()
+                            && state.history.is_dirty()
+                        {
+                            let _ = state.save(service.as_ref());
+                        }
+                    }
+                    (true, "z") | (true, "Z") => {
+                        let mut state = session.write();
+                        if let Some(state) = state.as_mut() {
+                            if key.shift {
+                                state.history.redo();
+                            } else {
+                                state.history.undo();
+                            }
+                        }
+                    }
+                    (true, "y") | (true, "Y") => {
+                        if let Some(state) = session.write().as_mut() {
+                            state.history.redo();
+                        }
+                    }
+                    (false, " ") => {
+                        if playback.read().playing {
+                            player::pause();
+                        } else {
+                            player::play();
+                        }
+                    }
+                    (false, "ArrowLeft") => {
+                        let step = if key.shift { -30.0 } else { -5.0 };
+                        let mut state = playback;
+                        state.write().step(step);
+                        player::seek(state.read().position);
+                    }
+                    (false, "ArrowRight") => {
+                        let step = if key.shift { 30.0 } else { 5.0 };
+                        let mut state = playback;
+                        state.write().step(step);
+                        player::seek(state.read().position);
+                    }
+                    (false, "Home") => {
+                        let mut state = playback;
+                        state.write().seek(0.0);
+                        player::seek(0.0);
+                    }
+                    (false, "End") => {
+                        let mut state = playback;
+                        let duration = state.read().duration;
+                        state.write().seek(duration);
+                        player::seek(duration);
+                    }
+                    _ => {}
+                }
+            }
+        });
+    });
+
     use_effect(move || {
         let theme = theme();
         document::eval(&format!(
@@ -212,6 +300,13 @@ pub fn App() -> Element {
             }
         }
     }
+}
+
+#[derive(serde::Deserialize)]
+struct KeyMsg {
+    key: String,
+    ctrl: bool,
+    shift: bool,
 }
 
 fn system_locale() -> Option<String> {

@@ -1,12 +1,22 @@
 mod app;
 mod components;
-mod service;
+pub mod service;
 
 fn main() {
     #[cfg(not(target_arch = "wasm32"))]
     {
         use dioxus::desktop::{Config, LogicalSize, WindowBuilder};
         let config = Config::new()
+            .with_asynchronous_custom_protocol("ustt", |_id, request, responder| {
+                let uri = request.uri().to_string();
+                let method = request.method().as_str().to_string();
+                let range = request
+                    .headers()
+                    .get("range")
+                    .and_then(|value| value.to_str().ok())
+                    .map(str::to_string);
+                responder.respond(service::media::respond(&uri, &method, range.as_deref()));
+            })
             .with_window(
                 WindowBuilder::new()
                     .with_title("Universal STT")
