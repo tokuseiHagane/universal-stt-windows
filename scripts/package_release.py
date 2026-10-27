@@ -6,9 +6,11 @@ import argparse
 import hashlib
 import os
 import json
+import os
 import shutil
 import sys
 import tempfile
+import traceback
 import zipfile
 from pathlib import Path
 
@@ -214,5 +216,21 @@ def main() -> int:
     return 0
 
 
+def report_failure(message: str) -> None:
+    print(message, file=sys.stderr)
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a", encoding="utf-8") as handle:
+            handle.write(f"### {Path(__file__).name} failed\n```\n{message[:4000]}\n```\n")
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except SystemExit as error:
+        if error.code not in (0, None):
+            report_failure(str(error.code))
+        raise
+    except Exception:
+        report_failure(traceback.format_exc())
+        raise
