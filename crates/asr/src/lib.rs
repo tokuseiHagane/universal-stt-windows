@@ -1,5 +1,6 @@
 pub mod ffi;
 pub mod json;
+mod path;
 pub mod stitch;
 pub mod vad;
 

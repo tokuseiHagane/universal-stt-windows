@@ -32,14 +32,14 @@ const MAIN_CSS: Asset = asset!("/assets/main.css");
 pub fn App() -> Element {
     let service = use_context_provider(crate::service::open_service);
     let mut lang = use_signal(|| Lang::from_system(system_locale().as_deref()));
-    let mut theme = use_signal(|| "dark".to_string());
+    let mut settings = use_signal(|| service.settings());
+    let mut theme = use_signal(|| settings.read().theme.clone());
     let mut screen = use_signal(|| Screen::Welcome);
     let mut pending = use_signal(|| None::<ImportHandle>);
     let mut pending_dir = use_signal(|| None::<std::path::PathBuf>);
     let mut pending_name = use_signal(String::new);
     let mut progress = use_signal(|| None::<ProgressView>);
     let mut error = use_signal(|| None::<String>);
-    let mut settings = use_signal(|| service.settings());
     let mut settings_open = use_signal(|| false);
     let mut recent = use_signal(|| service.recent());
     use_context_provider(|| recent);
@@ -223,8 +223,10 @@ pub fn App() -> Element {
     });
 
     use_effect(move || {
-        let theme = theme();
-        let code = format!("document.documentElement.dataset.theme = '{theme}';");
+        let theme = serde_json::to_string(&theme()).unwrap_or_else(|_| "\"dark\"".into());
+        let code = format!(
+            "document.documentElement.dataset.theme = ({theme} === 'system') ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : {theme};"
+        );
         spawn(async move {
             let _ = document::eval(&code).await;
         });

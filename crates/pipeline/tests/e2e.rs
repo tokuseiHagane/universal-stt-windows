@@ -31,6 +31,7 @@ fn imports_two_speaker_clip_end_to_end() {
         project_dir: tmp.path().join("t.ustt"),
         models: resolve_models(&models_dir(), Backend::Cpu).unwrap(),
         backend: Backend::Cpu,
+        ffmpeg_dir: None,
         make_proxy: true,
     };
     let mut last = 0.0;
@@ -77,6 +78,7 @@ fn cancel_mid_run_removes_partial_project() {
         project_dir: tmp.path().join("c.ustt"),
         models: resolve_models(&models_dir(), Backend::Cpu).unwrap(),
         backend: Backend::Cpu,
+        ffmpeg_dir: None,
         make_proxy: false,
     };
     let cancel = AtomicBool::new(false);

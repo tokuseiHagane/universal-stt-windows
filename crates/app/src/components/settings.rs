@@ -34,6 +34,22 @@ pub fn load_project_error(path: &Path) -> String {
     }
 }
 
+fn models_available(settings: &Settings) -> bool {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let Some(dir) = &settings.models_dir else {
+            return false;
+        };
+        let backend = ustt_pipeline::backend::detect(settings.backend).selected;
+        ustt_pipeline::models::resolve_models(dir, backend).is_ok()
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = settings;
+        false
+    }
+}
+
 #[derive(Props, Clone, PartialEq)]
 pub struct SettingsProps {
     pub lang: Lang,
@@ -50,11 +66,7 @@ pub fn SettingsScreen(props: SettingsProps) -> Element {
     let mut lang_code = use_signal(|| draft.read().language.clone().unwrap_or_default());
     let current = draft();
 
-    let models_ok = current
-        .models_dir
-        .clone()
-        .map(|dir| dir.is_dir())
-        .unwrap_or(false);
+    let models_ok = models_available(&current);
 
     rsx! {
         div { class: "scrim", onclick: move |_| props.on_close.call(()),
@@ -154,7 +166,7 @@ pub fn SettingsScreen(props: SettingsProps) -> Element {
                         },
                     }
                     label { "" }
-                    span { class: "meta", if models_ok { "{text.models_ok}" } else { "{text.models_missing}" } }
+                    span { class: "meta", "data-testid": "models-status", if models_ok { "{text.models_ok}" } else { "{text.models_missing}" } }
                     label { "" }
                     span { class: "meta", "data-testid": "backend-hint", "{backend_hint()}" }
                 }

@@ -85,6 +85,7 @@ fn process(args: &[String]) -> Result<(), String> {
         project_dir: PathBuf::from(&project),
         models,
         backend: detection.selected,
+        ffmpeg_dir: None,
         make_proxy: !args.iter().any(|a| a == "--no-proxy"),
     };
     let cancel = AtomicBool::new(false);

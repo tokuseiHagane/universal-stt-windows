@@ -20,6 +20,7 @@ pub struct ImportRequest {
     pub project_dir: PathBuf,
     pub models: ModelPaths,
     pub backend: Backend,
+    pub ffmpeg_dir: Option<PathBuf>,
     pub make_proxy: bool,
 }
 
@@ -84,7 +85,7 @@ pub fn run_import(
         keep: false,
     };
 
-    let tools = Tools::locate(None)?;
+    let tools = Tools::locate(req.ffmpeg_dir.as_deref())?;
     emit(Progress::new(Phase::Probe, 0.5, "probing"));
     let info = probe(&tools, &req.input)?;
     if cancel.load(Ordering::Relaxed) {

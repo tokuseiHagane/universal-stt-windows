@@ -1,5 +1,6 @@
 use crate::AsrError;
 use crate::AsrJson;
+use crate::path::c_path;
 use libloading::{Library, Symbol};
 use std::ffi::{CStr, CString, c_char, c_int, c_void};
 use std::path::Path;
@@ -61,8 +62,7 @@ impl ParakeetLib {
         path: &Path,
         expected_kind: i32,
     ) -> Result<*mut c_void, AsrError> {
-        let path = CString::new(path.to_string_lossy().as_bytes())
-            .map_err(|e| AsrError::Lib(e.to_string()))?;
+        let path = c_path(path)?;
         let load: Symbol<LoadFn> = self.symbol(b"parakeet_capi_load\0")?;
         let ctx = unsafe { load(path.as_ptr()) };
         if ctx.is_null() {
@@ -134,8 +134,7 @@ impl ParakeetLib {
     }
 
     pub(crate) fn transcribe_json(&self, ctx: *mut c_void, wav: &Path) -> Result<String, AsrError> {
-        let path = CString::new(wav.to_string_lossy().as_bytes())
-            .map_err(|e| AsrError::Lib(e.to_string()))?;
+        let path = c_path(wav)?;
         let call: Symbol<TranscribeJsonFn> =
             self.symbol(b"parakeet_capi_transcribe_path_json\0")?;
         let out = unsafe { call(ctx, path.as_ptr(), 0) };
@@ -149,8 +148,7 @@ impl ParakeetLib {
         wav: &Path,
         options: &str,
     ) -> Result<String, AsrError> {
-        let path = CString::new(wav.to_string_lossy().as_bytes())
-            .map_err(|e| AsrError::Lib(e.to_string()))?;
+        let path = c_path(wav)?;
         let options = CString::new(options).map_err(|e| AsrError::Lib(e.to_string()))?;
         let call: Symbol<VadJsonFn> = self.symbol(b"parakeet_capi_vad_path_json\0")?;
         let out = unsafe { call(ctx, path.as_ptr(), options.as_ptr()) };

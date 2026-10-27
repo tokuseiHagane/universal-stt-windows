@@ -64,7 +64,17 @@ impl NativeService {
 
 impl Service for NativeService {
     fn settings(&self) -> Settings {
-        self.settings.read().unwrap().clone()
+        let mut settings = self.settings.read().unwrap().clone();
+        if settings.models_dir.is_none() {
+            settings.models_dir = Some(self.models_dir());
+        }
+        if settings.ffmpeg_dir.is_none()
+            && let Ok(tools) = ustt_media::Tools::locate(None)
+            && let Some(dir) = tools.ffmpeg.parent()
+        {
+            settings.ffmpeg_dir = Some(dir.to_path_buf());
+        }
+        settings
     }
 
     fn save_settings(&self, settings: &Settings) -> Result<(), String> {
@@ -108,7 +118,10 @@ impl Service for NativeService {
         let cancel = Arc::new(AtomicBool::new(false));
         let flag = cancel.clone();
         let models_dir = self.models_dir();
-        let backend = detect(self.settings.read().unwrap().backend);
+        let settings = self.settings.read().unwrap();
+        let backend = detect(settings.backend);
+        let ffmpeg_dir = settings.ffmpeg_dir.clone();
+        drop(settings);
         std::thread::spawn(move || {
             let models = match resolve_models(&models_dir, backend.selected) {
                 Ok(paths) => paths,
@@ -122,6 +135,7 @@ impl Service for NativeService {
                 project_dir,
                 models,
                 backend: backend.selected,
+                ffmpeg_dir,
                 make_proxy: true,
             };
             let sender = tx.clone();

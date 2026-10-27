@@ -31,6 +31,7 @@ fn cancel_leaves_no_partial_project() {
             silero_vad: tmp.path().join("v.gguf"),
         },
         backend: Backend::Cpu,
+        ffmpeg_dir: None,
         make_proxy: false,
     };
     let err = run_import(&req, &cancel, &mut |_| {}).unwrap_err();
