@@ -298,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn import_error_is_kept_as_text() {
+    fn native_errors_survive_the_trait() {
         let err = NativeError::Message("missing ffmpeg".into());
         assert_eq!(err.to_string(), "missing ffmpeg");
     }

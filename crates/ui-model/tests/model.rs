@@ -70,7 +70,7 @@ fn zoom_keeps_the_cursor_time_under_the_cursor() {
 }
 
 #[test]
-fn virtual_rows_cover_the_viewport_only() {
+fn virtualized_rows_stay_bounded() {
     let v = virtual_rows(512.0, 480.0, 64.0, 10_000);
     assert_eq!(v.first, 8);
     assert_eq!(v.last, 16);
