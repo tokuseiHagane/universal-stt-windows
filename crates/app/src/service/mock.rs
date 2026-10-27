@@ -194,53 +194,17 @@ impl Service for MockService {
             if !matches!(request.audio, ustt_export::AudioMode::None) {
                 return Err("audio export needs the desktop build".to_string());
             }
-            let selected = request.speakers.as_deref();
-            let mut out = String::new();
-            let mut cues = String::new();
-            let mut index = 1;
-            for segment in &project.segments {
-                let name = segment
-                    .speaker_id
-                    .and_then(|id| project.speakers.iter().find(|s| s.id == id))
-                    .map(|s| s.name.as_str())
-                    .unwrap_or("Speaker");
-                if let (Some(allowed), Some(id)) = (selected, segment.speaker_id)
-                    && !allowed.contains(&id)
-                {
-                    continue;
-                }
-                if selected.is_some() && segment.speaker_id.is_none() {
-                    continue;
-                }
-                match request.format {
-                    ustt_export::TextOutput::Vtt => {
-                        cues.push_str(&format!(
-                            "{} --> {}\n{}: {}\n\n",
-                            cue(segment.start, '.'),
-                            cue(segment.end, '.'),
-                            name,
-                            segment.text
-                        ));
-                    }
-                    ustt_export::TextOutput::Srt => {
-                        cues.push_str(&format!(
-                            "{index}\n{} --> {}\n{}: {}\n\n",
-                            cue(segment.start, ','),
-                            cue(segment.end, ','),
-                            name,
-                            segment.text
-                        ));
-                        index += 1;
-                    }
-                    _ => out.push_str(&format!("{}: {}\n", name, segment.text)),
-                }
+            if matches!(
+                request.format,
+                ustt_export::TextOutput::Docx | ustt_export::TextOutput::Pdf
+            ) {
+                return Err("DOCX/PDF export needs the desktop build".to_string());
             }
-            let text = match request.format {
-                ustt_export::TextOutput::Vtt => format!("WEBVTT\n\n{cues}"),
-                ustt_export::TextOutput::Srt => cues,
-                _ => out,
-            };
-            Ok(text.into_bytes())
+            let ls = ustt_export::lines(&project, request.speakers.as_deref());
+            if ls.is_empty() {
+                return Err("nothing selected for export".to_string());
+            }
+            Ok(ustt_export::render_text(&ls, request.format, request.timestamps).into_bytes())
         })();
         match result {
             Ok(bytes) => {
@@ -264,13 +228,4 @@ impl Service for MockService {
     fn default_export_dir(&self) -> Option<PathBuf> {
         None
     }
-}
-
-fn cue(seconds: f64, separator: char) -> String {
-    let total_ms = (seconds.max(0.0) * 1000.0).round() as u64;
-    let ms = total_ms % 1000;
-    let s = total_ms / 1000 % 60;
-    let m = total_ms / 60_000 % 60;
-    let h = total_ms / 3_600_000;
-    format!("{h:02}:{m:02}:{s:02}{separator}{ms:03}")
 }

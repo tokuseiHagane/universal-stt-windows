@@ -64,6 +64,7 @@ fn extracts_speaker_track_and_cancels() {
         &tools,
         &wav,
         &plan,
+        "demo",
         AudioFormat::Wav,
         tmp.path(),
         &AtomicBool::new(false),
@@ -79,6 +80,7 @@ fn extracts_speaker_track_and_cancels() {
         &tools,
         &wav,
         &plan,
+        "demo",
         AudioFormat::Wav,
         tmp.path(),
         &AtomicBool::new(true),
@@ -86,4 +88,46 @@ fn extracts_speaker_track_and_cancels() {
     )
     .unwrap_err();
     assert!(matches!(err, ustt_export::ExportError::Cancelled));
+
+    // Two speakers: cancel from the progress callback after the first file.
+    let mut p2 = project();
+    let b = Uuid::from_u128(2);
+    p2.speakers.push(Speaker {
+        id: b,
+        name: "Bob".into(),
+        color: 1,
+    });
+    p2.segments.push(Segment {
+        id: Uuid::from_u128(11),
+        start: 1.0,
+        end: 1.8,
+        text: "y".into(),
+        speaker_id: Some(b),
+        words: Vec::new(),
+    });
+    let plan = plan_speakers(&p2, None);
+    assert_eq!(plan.tracks.len(), 2);
+    let cancel = AtomicBool::new(false);
+    let out = tmp.path().join("cancel-out");
+    std::fs::create_dir_all(&out).unwrap();
+    let err = extract(
+        &tools,
+        &wav,
+        &plan,
+        "cancel",
+        AudioFormat::Wav,
+        &out,
+        &cancel,
+        &mut |fraction, _| {
+            if fraction < 1.0 {
+                cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+        },
+    )
+    .unwrap_err();
+    assert!(matches!(err, ustt_export::ExportError::Cancelled));
+    assert!(!std::fs::read_dir(&out).unwrap().any(|e| {
+        e.map(|e| e.path().extension().and_then(|x| x.to_str()) == Some("wav"))
+            .unwrap_or(false)
+    }));
 }

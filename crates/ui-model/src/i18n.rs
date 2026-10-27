@@ -93,6 +93,7 @@ pub struct Strings {
     pub export_folder: &'static str,
     pub export_download_folder: &'static str,
     pub choose_folder: &'static str,
+    pub export_cancelled: &'static str,
 }
 
 pub fn strings(lang: Lang) -> &'static Strings {
@@ -175,6 +176,7 @@ static RU: Strings = Strings {
     export_folder: "Папка назначения",
     export_download_folder: "Браузер скачает файл",
     choose_folder: "Выбрать папку",
+    export_cancelled: "Экспорт отменён",
 };
 
 static EN: Strings = Strings {
@@ -250,4 +252,5 @@ static EN: Strings = Strings {
     export_folder: "Destination",
     export_download_folder: "The browser will download the file",
     choose_folder: "Choose folder",
+    export_cancelled: "Export cancelled",
 };

@@ -268,7 +268,7 @@ impl Service for NativeService {
                 let _ = tx.send(ExportEvent::Failed(message));
                 return;
             }
-            let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+            let date = chrono::Utc::now().format("%Y-%m-%d").to_string();
             let filename = super::export_filename(&project.title, &date, request.format);
             let stem = filename
                 .rsplit_once('.')
@@ -277,6 +277,10 @@ impl Service for NativeService {
             let mut files = Vec::new();
             let selected = request.speakers.as_deref();
             let lines = ustt_export::lines(&project, selected);
+            if lines.is_empty() {
+                let _ = tx.send(ExportEvent::Failed("nothing selected for export".into()));
+                return;
+            }
             let text = match request.format {
                 ustt_export::TextOutput::Docx => {
                     ustt_export::render_docx(&project, &lines, request.timestamps)
@@ -329,6 +333,7 @@ impl Service for NativeService {
                     &tools,
                     &wav,
                     &plan,
+                    &stem,
                     request.audio_format,
                     &request.out_dir,
                     &flag,
@@ -342,10 +347,16 @@ impl Service for NativeService {
                 match outcome {
                     Ok(mut audio) => files.append(&mut audio),
                     Err(ustt_export::ExportError::Cancelled) => {
+                        for file in &files {
+                            let _ = std::fs::remove_file(file);
+                        }
                         let _ = tx.send(ExportEvent::Cancelled);
                         return;
                     }
                     Err(err) => {
+                        for file in &files {
+                            let _ = std::fs::remove_file(file);
+                        }
                         let _ = tx.send(ExportEvent::Failed(err.to_string()));
                         return;
                     }

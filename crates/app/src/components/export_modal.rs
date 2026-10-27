@@ -39,6 +39,12 @@ pub fn ExportModal(props: ExportModalProps) -> Element {
     let mut detail = use_signal(String::new);
     let mut error = use_signal(|| None::<String>);
     let mut done = use_signal(Vec::<String>::new);
+    let job_for_drop = job;
+    use_drop(move || {
+        if let Some(j) = job_for_drop.read().as_ref() {
+            j.cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    });
 
     let run_project = props.project.clone();
     let run_selected = props.selected_segments;
@@ -124,10 +130,16 @@ pub fn ExportModal(props: ExportModalProps) -> Element {
     };
 
     let busy = job.read().is_some();
+    let has_destination = out_dir().is_some() || service.demo_available();
+    let close = move |_| {
+        if job.read().is_none() {
+            props.on_close.call(());
+        }
+    };
     let segment_count = (props.selected_segments)().len();
 
     rsx! {
-        div { class: "scrim", onclick: move |_| props.on_close.call(()),
+        div { class: "scrim", onclick: close,
             div {
                 class: "modal export-modal",
                 "data-testid": "export-modal",
@@ -226,7 +238,7 @@ pub fn ExportModal(props: ExportModalProps) -> Element {
                     p { class: "ok", "{file}" }
                 }
                 div { class: "modal-actions",
-                    button { class: "btn ghost", onclick: move |_| props.on_close.call(()), "{text.cancel}" }
+                    button { class: "btn ghost", onclick: close, "{text.cancel}" }
                     if busy {
                         button {
                             class: "btn danger",
@@ -241,6 +253,7 @@ pub fn ExportModal(props: ExportModalProps) -> Element {
                         button {
                             class: "btn primary",
                             "data-testid": "export-submit",
+                            disabled: !has_destination,
                             onclick: run,
                             "{text.export}"
                         }

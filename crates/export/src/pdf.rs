@@ -10,12 +10,12 @@ pub fn render_pdf(
     lines: &[ExportLine],
     timestamps: bool,
 ) -> Result<Vec<u8>, ExportError> {
-    let speakers = project
-        .speakers
-        .iter()
-        .map(|s| escape(&s.name))
-        .collect::<Vec<_>>()
-        .join(", ");
+    let speakers = {
+        let mut names: Vec<&str> = lines.iter().map(|l| l.speaker.as_str()).collect();
+        names.sort_unstable();
+        names.dedup();
+        names.into_iter().map(escape).collect::<Vec<_>>().join(", ")
+    };
     let mut html = String::from(
         "<html><head><style>\
          body{font-family:'Noto';font-size:10.5pt;color:#1f2328;line-height:1.45}\
@@ -56,11 +56,15 @@ pub fn render_pdf(
         margin_bottom: Some(18.0),
         margin_left: Some(18.0),
         margin_right: Some(18.0),
+        show_page_numbers: Some(true),
         ..Default::default()
     };
     let mut warnings = Vec::new();
     let doc = PdfDocument::from_html(&html, &BTreeMap::new(), &fonts, &options, &mut warnings)
         .map_err(ExportError::Pdf)?;
+    if !warnings.is_empty() {
+        return Err(ExportError::Pdf(format!("layout warnings: {warnings:?}")));
+    }
     Ok(doc.save(&PdfSaveOptions::default(), &mut warnings))
 }
 

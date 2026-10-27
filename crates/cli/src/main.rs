@@ -121,6 +121,9 @@ enum AudioModeArg {
 
 fn parse_export(args: &[String]) -> Result<ExportArgs, String> {
     let project = args.first().ok_or("export needs a project directory")?;
+    if project.starts_with("--") {
+        return Err("export needs a project directory".into());
+    }
     let out = flag(args, "--out").ok_or("--out is required")?;
     let format = flag(args, "--format")
         .as_deref()
@@ -140,6 +143,9 @@ fn parse_export(args: &[String]) -> Result<ExportArgs, String> {
         "m4a" => AudioFormat::M4a,
         other => return Err(format!("unknown audio format {other}")),
     };
+    if audio == AudioModeArg::Segments && segments.as_ref().is_none_or(|ids| ids.is_empty()) {
+        return Err("--segments is required for audio=segments".into());
+    }
     Ok(ExportArgs {
         project: PathBuf::from(project),
         out: PathBuf::from(out),
@@ -202,16 +208,24 @@ fn export(args: &[String]) -> Result<(), String> {
         };
         let tools = Tools::locate(None).map_err(|e| e.to_string())?;
         let wav = store.media_dir().join("audio16k.wav");
-        let mut extracted = extract(
+        let mut extracted = match extract(
             &tools,
             &wav,
             &plan,
+            &stem,
             parsed.audio_format,
             &parsed.out,
             &AtomicBool::new(false),
             &mut |_, _| {},
-        )
-        .map_err(|e| e.to_string())?;
+        ) {
+            Ok(files) => files,
+            Err(err) => {
+                for file in &files {
+                    let _ = std::fs::remove_file(file);
+                }
+                return Err(err.to_string());
+            }
+        };
         files.append(&mut extracted);
     }
     println!("{}", serde_json::json!({ "files": files }));

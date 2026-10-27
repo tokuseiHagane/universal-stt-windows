@@ -20,7 +20,7 @@ build it and use it.
 | Segment building and speaker assignment | ready |
 | CLI (`ustt-cli`) | ready |
 | Desktop UI (Dioxus + WebView2) | ready for review |
-| DOCX/PDF export, audio extraction | next plan |
+| DOCX/PDF export, audio extraction | ready |
 | Portable ZIP and GitHub Actions release | next plan |
 
 The core pipeline runs end to end today:
@@ -152,8 +152,8 @@ Model-backed tests are `#[ignore]`d so a clean checkout stays green. Set
 The desktop build exports the edited project as DOCX, PDF, SRT, VTT, TXT or
 Markdown, filtered to chosen speakers. Audio can be extracted per speaker or
 from selected transcript rows as WAV or M4A. Text uses the current speaker
-names and edits; DOCX/PDF embed the bundled Noto Sans so Cyrillic renders
-offline. CLI: `ustt-cli export <project> --out <dir> --format srt`.
+names and edits; PDF embeds the bundled Noto Sans so Cyrillic renders offline; DOCX uses the
+reader's fonts. CLI: `ustt-cli export <project> --out <dir> --format srt`.
 
 ## Design
 

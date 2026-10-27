@@ -12,12 +12,12 @@ pub fn render_docx(
         "{} · {} · {}",
         project.modified_at.format("%Y-%m-%d"),
         duration(project.duration),
-        project
-            .speakers
-            .iter()
-            .map(|s| s.name.as_str())
-            .collect::<Vec<_>>()
-            .join(", ")
+        {
+            let mut names: Vec<&str> = lines.iter().map(|l| l.speaker.as_str()).collect();
+            names.sort_unstable();
+            names.dedup();
+            names.join(", ")
+        }
     );
     let mut doc = Docx::new()
         .default_size(22)

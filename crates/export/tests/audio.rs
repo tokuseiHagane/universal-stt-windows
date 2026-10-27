@@ -89,6 +89,7 @@ fn missing_wav_is_an_error() {
         &tools,
         Path::new("/definitely/missing.wav"),
         &plan,
+        "demo",
         AudioFormat::Wav,
         Path::new("/tmp"),
         &std::sync::atomic::AtomicBool::new(false),
@@ -111,6 +112,7 @@ fn empty_plan_is_rejected() {
         &tools,
         &wav,
         &AudioPlan::default(),
+        "demo",
         AudioFormat::Wav,
         tmp.path(),
         &std::sync::atomic::AtomicBool::new(false),
@@ -118,4 +120,12 @@ fn empty_plan_is_rejected() {
     )
     .unwrap_err();
     assert!(matches!(err, ExportError::Audio(_)));
+}
+
+#[test]
+fn track_names_are_unique_across_duplicate_speakers() {
+    let a = ustt_export::audio::track_filename("demo-2026-10-28", 0, "Alice", "wav");
+    let b = ustt_export::audio::track_filename("demo-2026-10-28", 1, "alice", "wav");
+    assert_ne!(a, b);
+    assert_eq!(a, "demo-2026-10-28-01-alice.wav");
 }
