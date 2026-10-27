@@ -155,6 +155,7 @@ pub fn ExportModal(props: ExportModalProps) -> Element {
                             label { class: "check",
                                 input {
                                     r#type: "checkbox",
+                                    "data-testid": "export-speaker",
                                     checked: speakers().contains(&speaker.id),
                                     onchange: move |_| {
                                         let mut next = speakers();

@@ -147,6 +147,14 @@ cargo clippy --workspace --all-targets -- -D warnings
 Model-backed tests are `#[ignore]`d so a clean checkout stays green. Set
 `USTT_MODELS_DIR` (default `models`) and `ORT_DYLIB_PATH` to run them.
 
+## Export
+
+The desktop build exports the edited project as DOCX, PDF, SRT, VTT, TXT or
+Markdown, filtered to chosen speakers. Audio can be extracted per speaker or
+from selected transcript rows as WAV or M4A. Text uses the current speaker
+names and edits; DOCX/PDF embed the bundled Noto Sans so Cyrillic renders
+offline. CLI: `ustt-cli export <project> --out <dir> --format srt`.
+
 ## Design
 
 - Design: `docs/superpowers/specs/2026-10-27-universal-stt-windows-design.md`
