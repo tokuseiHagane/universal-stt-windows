@@ -203,8 +203,8 @@ impl VadEngine {
         })
     }
 
-    pub fn speech_ranges(&mut self, wav: &Path, options: &str) -> Result<String, AsrError> {
-        self.lib.vad_json(self.ctx.0, wav, options)
+    pub(crate) fn raw_segments_json(&mut self, wav: &Path) -> Result<String, AsrError> {
+        self.lib.vad_json(self.ctx.0, wav, "")
     }
 }
 

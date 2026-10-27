@@ -1,8 +1,60 @@
 pub mod ffi;
 pub mod json;
+pub mod stitch;
+pub mod vad;
 
 pub use ffi::{AsrEngine, ParakeetLib, VadEngine};
 pub use json::AsrJson;
+pub use stitch::stitch;
+pub use vad::{TimeRange, chunk_ranges};
+
+use std::path::Path;
+
+pub fn transcribe_chunks(
+    engine: &mut AsrEngine,
+    vad: &mut VadEngine,
+    wav: &Path,
+    max_len_s: f64,
+    progress: &mut dyn FnMut(f32),
+) -> Result<AsrJson, AsrError> {
+    let samples = ustt_media::read_wav_mono16k(wav).map_err(|e| AsrError::Model(e.to_string()))?;
+    let duration = samples.len() as f64 / 16_000.0;
+    let ranges = vad.speech_ranges(wav)?;
+    let chunks = chunk_ranges(&ranges, max_len_s, duration);
+    if chunks.is_empty() {
+        progress(1.0);
+        return Ok(AsrJson {
+            text: String::new(),
+            language: None,
+            words: Vec::new(),
+        });
+    }
+
+    let total: f64 = chunks.iter().map(|r| (r.end - r.start).max(0.0)).sum();
+    let mut done = 0.0;
+    let mut out = Vec::with_capacity(chunks.len());
+    for range in chunks {
+        let first = (range.start * 16_000.0).floor().max(0.0) as usize;
+        let last = ((range.end * 16_000.0).ceil() as usize).min(samples.len());
+        let slice = &samples[first.min(samples.len())..last.max(first.min(samples.len()))];
+        let file = tempfile::Builder::new()
+            .prefix("ustt-chunk-")
+            .suffix(".wav")
+            .tempfile()?;
+        ustt_media::write_wav_mono16k(file.path(), slice)
+            .map_err(|e| AsrError::Model(e.to_string()))?;
+        let json = engine.transcribe_wav(file.path())?;
+        file.close().ok();
+        out.push((range, json));
+        done += (range.end - range.start).max(0.0);
+        progress(if total > 0.0 {
+            (done / total) as f32
+        } else {
+            1.0
+        });
+    }
+    Ok(stitch(&out))
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum AsrError {

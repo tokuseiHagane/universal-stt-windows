@@ -804,6 +804,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "ustt-core",
+ "ustt-media",
 ]
 
 [[package]]

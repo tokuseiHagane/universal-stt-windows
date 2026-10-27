@@ -11,6 +11,8 @@ serde_json.workspace = true
 thiserror.workspace = true
 libloading = "0.9"
 ustt-core = { path = "../core" }
+ustt-media = { path = "../media" }
+tempfile = "3"
 
 [dev-dependencies]
 tempfile = "3"
