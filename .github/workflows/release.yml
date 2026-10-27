@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows-portable:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-windows
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Dioxus CLI
+        run: cargo install dioxus-cli --version 0.7.10 --locked
+      - name: Build desktop app
+        working-directory: crates/app
+        run: dx build --platform desktop --release
+      - name: Cache Windows dependencies
+        uses: actions/cache@v4
+        with:
+          path: vendor/win64
+          key: win64-${{ hashFiles('models/manifest.json') }}
+      - name: Fetch Windows dependencies and models
+        run: python scripts/fetch-win-deps.py --dest vendor/win64
+      - name: Package portable ZIP
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          $exe = Get-ChildItem -Path target/dx -Recurse -Filter universal-stt.exe |
+            Select-Object -First 1
+          if (-not $exe) { throw "universal-stt.exe not found" }
+          python scripts/package_release.py `
+            --deps vendor/win64 `
+            --manifest models/manifest.json `
+            --exe $exe.FullName `
+            --out dist `
+            --version $version
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $zip = Get-ChildItem dist/*.zip | Select-Object -First 1
+          gh release view $env:GITHUB_REF_NAME *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $env:GITHUB_REF_NAME --generate-notes --title "Universal STT $env:GITHUB_REF_NAME"
+          }
+          gh release upload $env:GITHUB_REF_NAME $zip.FullName dist/SHA256SUMS NOTICE LICENSE --clobber
