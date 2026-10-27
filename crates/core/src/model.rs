@@ -117,6 +117,7 @@ pub enum AudioFormat {
     #[default]
     Wav,
     Mp3,
+    M4a,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
