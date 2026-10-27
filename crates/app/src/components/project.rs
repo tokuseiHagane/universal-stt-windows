@@ -6,7 +6,7 @@ use crate::service::{MediaAsset, Service, StoreHandle};
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use std::sync::Arc;
-use ustt_core::{History, Project};
+use ustt_core::{History, MediaKind, Project};
 use ustt_ui_model::{Lang, Playback, WaveData, strings};
 
 pub struct ProjectSession {
@@ -47,6 +47,25 @@ impl ProjectSession {
         self.history.mark_saved();
         self.saved_at = Some(Utc::now());
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProjectGrid {
+    pub transcript: &'static str,
+    pub preview: &'static str,
+}
+
+pub fn project_grid(kind: MediaKind) -> ProjectGrid {
+    match kind {
+        MediaKind::Video => ProjectGrid {
+            transcript: "minmax(0,1fr)",
+            preview: "minmax(0,1fr)",
+        },
+        MediaKind::Audio => ProjectGrid {
+            transcript: "minmax(0,1fr)",
+            preview: "0px",
+        },
     }
 }
 
@@ -153,6 +172,12 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
         .as_ref()
         .map(|s| s.wave.clone())
         .unwrap_or_default();
+    let proxy_url = session
+        .read()
+        .as_ref()
+        .and_then(|s| s.proxy_url.clone())
+        .unwrap_or_default();
+    let grid = project_grid(project.kind);
 
     rsx! {
         section { class: "project", "data-testid": "project",
@@ -175,7 +200,9 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
                 selected: selected_speaker,
                 on_rename: rename,
             }
-            div { class: "project-body audio",
+            div {
+                class: if project.kind == MediaKind::Video { "project-body video" } else { "project-body audio" },
+                style: "grid-template-columns: {grid.transcript} {grid.preview};",
                 Transcript {
                     lang: props.lang,
                     project: project.clone(),
@@ -183,16 +210,32 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
                     on_seek: seek,
                     on_edit: edit_text,
                 }
+                if project.kind == MediaKind::Video {
+                    div { class: "preview",
+                        if proxy_url.is_empty() {
+                            div { class: "missing", "{text.proxy_missing}" }
+                        } else {
+                            video {
+                                id: "player",
+                                src: "{proxy_url}",
+                                preload: "metadata",
+                                playsinline: true,
+                            }
+                        }
+                    }
+                }
             }
-            audio {
-                id: "player",
-                src: "{audio_url}",
-                preload: "metadata",
-                style: "display:none;",
+            if project.kind == MediaKind::Audio {
+                audio {
+                    id: "player",
+                    src: "{audio_url}",
+                    preload: "metadata",
+                    style: "display:none;",
+                }
             }
             Timeline {
                 lang: props.lang,
-                project,
+                project: project.clone(),
                 wave,
                 on_seek: seek,
             }
@@ -248,6 +291,14 @@ mod tests {
         assert_eq!(history.current().speakers[0].name, "Speaker 1");
         assert!(history.can_redo());
         assert!(history.is_dirty());
+    }
+
+    #[test]
+    fn video_layout_is_half_and_half() {
+        let grid = project_grid(MediaKind::Video);
+        assert_eq!(grid.transcript, "minmax(0,1fr)");
+        assert_eq!(grid.preview, "minmax(0,1fr)");
+        assert_eq!(project_grid(MediaKind::Audio).preview, "0px");
     }
 
     #[test]
