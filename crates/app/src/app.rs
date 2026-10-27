@@ -1,10 +1,10 @@
 use crate::components::processing::Processing;
+use crate::components::project::{ProjectSession, ProjectView};
 use crate::components::welcome::Welcome;
 use crate::service::{ImportEvent, ImportHandle};
 use dioxus::prelude::*;
-use std::sync::Arc;
 use ustt_core::{MediaKind, RecentEntry};
-use ustt_ui_model::{Lang, ProgressView, strings};
+use ustt_ui_model::{Lang, Playback, ProgressView, strings};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,6 +38,10 @@ pub fn App() -> Element {
     let mut progress = use_signal(|| None::<ProgressView>);
     let mut error = use_signal(|| None::<String>);
     let mut processing_error = use_signal(|| None::<String>);
+    let mut session = use_signal(|| None::<ProjectSession>);
+    let playback = use_signal(Playback::default);
+    use_context_provider(|| session);
+    use_context_provider(|| playback);
     let worker_service = service.clone();
     let text = strings(lang());
 
@@ -83,6 +87,24 @@ pub fn App() -> Element {
             }
         }
     });
+
+    {
+        let service = service.clone();
+        use_future(move || {
+            let service = service.clone();
+            async move {
+                loop {
+                    let secs = service.settings().autosave_secs.clamp(1, 3600) as u64;
+                    futures_timer::Delay::new(std::time::Duration::from_secs(secs)).await;
+                    if let Some(state) = session.write().as_mut()
+                        && state.history.is_dirty()
+                    {
+                        let _ = state.save(service.as_ref());
+                    }
+                }
+            }
+        });
+    }
 
     use_effect(move || {
         let theme = theme();
@@ -135,7 +157,12 @@ pub fn App() -> Element {
                                 let service = service.clone();
                                 move |dir: std::path::PathBuf| {
                                     match service.open(&dir) {
-                                        Ok(_) => screen.set(Screen::Project),
+                                        Ok((store, project)) => {
+                                            let mut player = playback;
+                                            player.write().set_duration(project.duration);
+                                            session.set(Some(ProjectSession::new(store, project, service.as_ref())));
+                                            screen.set(Screen::Project);
+                                        }
                                         Err(message) => error.set(Some(message)),
                                     }
                                 }
@@ -144,7 +171,12 @@ pub fn App() -> Element {
                                 let service = service.clone();
                                 move |kind: MediaKind| {
                                     match service.demo(kind) {
-                                        Some(_) => screen.set(Screen::Project),
+                                        Some((store, project)) => {
+                                            let mut player = playback;
+                                            player.write().set_duration(project.duration);
+                                            session.set(Some(ProjectSession::new(store, project, service.as_ref())));
+                                            screen.set(Screen::Project);
+                                        }
                                         None => error.set(Some(text.error.to_string())),
                                     }
                                 }
@@ -175,7 +207,7 @@ pub fn App() -> Element {
                             }
                         }
                     },
-                    Screen::Project => rsx! { section { class: "placeholder", "{text.transcript}" } },
+                    Screen::Project => rsx! { ProjectView { lang: lang() } },
                 }
             }
         }

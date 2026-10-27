@@ -40,7 +40,7 @@ pub fn Welcome(props: WelcomeProps) -> Element {
     let recent = service.recent();
     let mut dragging = use_signal(|| false);
 
-    let mut start = move |path: PathBuf| {
+    let start = move |path: PathBuf| {
         #[cfg(not(target_arch = "wasm32"))]
         let dir = crate::service::native::project_dir_for(
             &path,

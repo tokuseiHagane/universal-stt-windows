@@ -224,3 +224,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 
 .demo-actions { display: flex; gap: 10px; }
 .drop-icon { color: var(--accent); }
+
+.project-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 18px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.project-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.save-state { color: var(--muted); font-size: 12px; }
+.section-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin-right: 4px; }
+.transcript-row { height: 64px; }
+.timeline-placeholder { height: 170px; }

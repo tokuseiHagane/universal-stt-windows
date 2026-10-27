@@ -19,6 +19,7 @@ dioxus = { version = "0.7.10" }
 futures-timer = "3"
 serde_json.workspace = true
 thiserror.workspace = true
+uuid.workspace = true
 ustt-core = { path = "../core" }
 ustt-ui-model = { path = "../ui-model" }
 
