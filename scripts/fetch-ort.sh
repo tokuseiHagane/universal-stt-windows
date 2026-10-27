@@ -36,5 +36,9 @@ case "$archive" in
     rmdir "$dest/$name"
     ;;
 esac
+if [ -d "$dest/lib" ]; then
+  mv "$dest/lib"/* "$dest"/
+  rmdir "$dest/lib"
+fi
 rm -f "$archive"
 echo "ONNX Runtime $version ready in $dest"
