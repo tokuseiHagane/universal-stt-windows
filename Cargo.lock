@@ -827,6 +827,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ustt-cli"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "ustt-core",
+ "ustt-media",
+ "ustt-pipeline",
+]
+
+[[package]]
 name = "ustt-core"
 version = "0.1.0"
 dependencies = [

@@ -68,7 +68,7 @@ pub fn resolve_models(dir: &Path, backend: Backend) -> Result<ModelPaths, ModelE
     })
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ModelCheck {
     pub name: String,
     pub ok: bool,

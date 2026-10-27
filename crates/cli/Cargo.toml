@@ -1,0 +1,16 @@
+[package]
+name = "ustt-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "ustt-cli"
+path = "src/main.rs"
+
+[dependencies]
+serde_json.workspace = true
+ustt-core = { path = "../core" }
+ustt-media = { path = "../media" }
+ustt-pipeline = { path = "../pipeline" }

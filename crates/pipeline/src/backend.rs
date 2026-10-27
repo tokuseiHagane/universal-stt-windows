@@ -43,6 +43,15 @@ pub fn detect_with(pref: BackendPreference, env_override: Option<&str>) -> Detec
     let hip_present = library_present("amdhip64.dll") || library_present("libamdhip64.so");
 
     let forced = env_override.and_then(parse_backend);
+
+    // GPU backends ship as Windows DLLs; a dev build on Linux runs the CPU path.
+    #[cfg(not(windows))]
+    let selected = {
+        let _ = pref;
+        forced.unwrap_or(Backend::Cpu)
+    };
+
+    #[cfg(windows)]
     let selected = if let Some(forced) = forced {
         forced
     } else {

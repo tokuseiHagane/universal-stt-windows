@@ -1,24 +1,24 @@
 use crate::MediaError;
 use crate::tools::Tools;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::process::Command;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct VideoStream {
     pub codec: String,
     pub width: u32,
     pub height: u32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct AudioStream {
     pub codec: String,
     pub channels: u32,
     pub sample_rate: u32,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct MediaInfo {
     pub duration: f64,
     pub video: Option<VideoStream>,
