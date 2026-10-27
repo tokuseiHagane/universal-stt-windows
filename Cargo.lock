@@ -6113,6 +6113,7 @@ dependencies = [
  "gloo-timers",
  "rfd 0.15.4",
  "serde_json",
+ "thiserror 2.0.21",
  "ustt-core",
  "ustt-media",
  "ustt-pipeline",

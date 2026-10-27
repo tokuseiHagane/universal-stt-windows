@@ -23,6 +23,7 @@ const MAIN_CSS: Asset = asset!("/assets/main.css");
 
 #[component]
 pub fn App() -> Element {
+    let _service = use_context_provider(crate::service::open_service);
     let lang = use_signal(|| Lang::from_system(system_locale().as_deref()));
     let theme = use_signal(|| "dark".to_string());
     let screen = use_signal(|| Screen::Welcome);
