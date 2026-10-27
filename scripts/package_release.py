@@ -95,6 +95,9 @@ def build_zip(
             shutil.copy2(source, target)
         shutil.copy2(manifest, stage / "models" / "manifest.json")
         shutil.copy2(exe, stage / "UniversalSTT.exe")
+        assets = exe.parent / "assets"
+        if assets.is_dir():
+            shutil.copytree(assets, stage / "assets")
         for name in ("LICENSE", "NOTICE", "README.md"):
             source = ROOT / name
             if source.is_file():

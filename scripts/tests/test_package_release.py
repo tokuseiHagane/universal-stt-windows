@@ -29,6 +29,9 @@ def test_self_test_rejects_bad_hash(tmp_path: Path) -> None:
 
 def test_build_zip_layout_and_compression(tmp_path: Path) -> None:
     deps, manifest, exe = package.make_fixture(tmp_path)
+    assets = exe.parent / "assets"
+    assets.mkdir()
+    (assets / "main.css").write_text("body{}")
     archive = package.build_zip(deps, exe, tmp_path / "dist", "1.2.3", manifest)
     assert archive.name == "UniversalSTT-1.2.3-win64-portable.zip"
     with zipfile.ZipFile(archive) as zf:
@@ -36,6 +39,7 @@ def test_build_zip_layout_and_compression(tmp_path: Path) -> None:
         assert "models/who/who_meta.json" in zf.namelist()
         assert "models/manifest.json" in zf.namelist()
         assert "swscale-9.dll" in zf.namelist()
+        assert "assets/main.css" in zf.namelist()
         assert zf.getinfo("models/redux-packed.gguf").compress_type == zipfile.ZIP_STORED
         assert zf.getinfo("UniversalSTT.exe").compress_type == zipfile.ZIP_DEFLATED
 

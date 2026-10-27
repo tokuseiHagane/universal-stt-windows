@@ -53,7 +53,7 @@ dist/SHA256SUMS
 
 The ZIP root contains `UniversalSTT.exe`, the DLLs, `ffmpeg.exe`,
 `models/`, `MicrosoftEdgeWebView2RuntimeInstallerX64.exe`, `VC_redist.x64.exe`,
-`WebView2Loader.dll`, `LICENSE`,
+`WebView2Loader.dll`, `assets/` (if the Dioxus build emits one), `LICENSE`,
 `NOTICE`, `README.md`, `version.txt` and `models/manifest.json`.
 
 The release tag must match the `ustt-app` version in `Cargo.toml`; the CI
