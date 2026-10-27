@@ -42,6 +42,7 @@ jobs:
           }
           $exe = "target/dx/universal-stt/release/windows/app/universal-stt.exe"
           if (-not (Test-Path $exe)) { throw "missing $exe" }
+          New-Item -ItemType Directory -Force dist | Out-Null
           cargo tree --workspace > dist/DEPENDENCIES.txt
           python scripts/package_release.py `
             --deps vendor/win64 `
