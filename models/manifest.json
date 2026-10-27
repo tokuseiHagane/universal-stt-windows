@@ -1,0 +1,64 @@
+{
+ "files": [
+  {
+   "name": "redux-packed.gguf",
+   "sha256": "574614b9a4d9f72ab202877a7ad6a1f4bf819dd1d27b9d42dfe8cd429fcebdd5",
+   "bytes": 213319296
+  },
+  {
+   "name": "redux-q8_0.gguf",
+   "sha256": "3429a4598946c406dbb4af5bb589d4dd307b069d550d98e24bef6779c4e6988f",
+   "bytes": 941517728
+  },
+  {
+   "name": "silero-vad-f16.gguf",
+   "sha256": "8160489282352accc0e95925c2f6bf3d76fb8f7bccdce5c7e46808cb15e8443c",
+   "bytes": 1264928
+  },
+  {
+   "name": "who/encoder_6000.onnx",
+   "sha256": "97dec8231801b3db40727c122f095fe4791f66a81a740139d1a09b2e5ba0f308",
+   "bytes": 22271025
+  },
+  {
+   "name": "who/encoder_30000.onnx",
+   "sha256": "f637cb029e6e5eaaa3f0a3f5796cace41e8b9f5e8669dd11a79b83025505049b",
+   "bytes": 40933492
+  },
+  {
+   "name": "who/queries_6000.onnx",
+   "sha256": "b53c338e44b7f6fe0c99514c45cb2874e582e18b13c58222396386ea680d06cd",
+   "bytes": 7961203
+  },
+  {
+   "name": "who/queries_30000.onnx",
+   "sha256": "b9d7fef1aa0c0391c49c48284549228744fc3da5df80fa217902604ad25cbff0",
+   "bytes": 7961701
+  },
+  {
+   "name": "who/voice_3256.onnx",
+   "sha256": "dd5408ca7995c16bc6cba484fb9ac2075f431032113a10a56fb6a7efea94ec29",
+   "bytes": 21455832
+  },
+  {
+   "name": "who/who_embed.f16",
+   "sha256": "2f2cb55e4370c30b3d5f0401bf421e018fcc8633f5d3aef225375704c60a8c1c",
+   "bytes": 2621960
+  },
+  {
+   "name": "who/who_mel_banks.f32",
+   "sha256": "730d76d5d2099d964c705c82c4556e2b10792d287666aa97edb0633f88f08ce0",
+   "bytes": 23652
+  },
+  {
+   "name": "who/who_voice_banks.f32",
+   "sha256": "df33ff45ac021f5d014356b4e9ab4b9f91fadd836649962ee6e89eadfcd264e3",
+   "bytes": 82248
+  },
+  {
+   "name": "who/who_meta.json",
+   "sha256": "96c79bac6caac141887cabaf06bd0163dd0a886936157d352a9d217aa12cd083",
+   "bytes": 3927
+  }
+ ]
+}

@@ -119,6 +119,14 @@ fn candidate_dirs() -> Vec<PathBuf> {
     }
     dirs.push(PathBuf::from("."));
     dirs.push(PathBuf::from("lib"));
+    if let Ok(cwd) = std::env::current_dir() {
+        let mut cursor = Some(cwd.as_path());
+        for _ in 0..5 {
+            let Some(dir) = cursor else { break };
+            dirs.push(dir.join("lib"));
+            cursor = dir.parent();
+        }
+    }
     dirs
 }
 

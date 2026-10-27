@@ -1,0 +1,42 @@
+Universal STT — third-party notices
+
+Code in this repository: MIT (see LICENSE).
+
+Models and runtimes
+-------------------
+Who (desert-ant-labs/who)
+  License: DAL Source-Available 1.0
+  https://huggingface.co/desert-ant-labs/who
+  Attribution required. Free below 100,000 monthly active users per platform
+  per model. Outputs may not be used to train a competing on-device model.
+
+Parakeet Redux (moondream/parakeet-redux)
+  License: CC-BY-4.0
+  https://huggingface.co/moondream/parakeet-redux
+
+Parakeet GGUF conversion (mudler/parakeet-cpp-gguf)
+  Conversion of the above; same model license.
+
+parakeet.cpp
+  License: MIT
+  https://github.com/mudler/parakeet.cpp
+  C header vendored at vendor/parakeet/parakeet_capi.h
+
+Silero VAD
+  License: MIT
+  https://github.com/snakers4/silero-vad
+
+ONNX Runtime
+  License: MIT
+  https://github.com/microsoft/onnxruntime
+
+FFmpeg
+  The distributed build is LGPL-licensed and runs as a separate executable.
+  https://ffmpeg.org/legal.html
+
+Test audio
+----------
+tests/fixtures/two_speakers.wav is assembled by scripts/fetch-fixtures.sh from:
+  - JFK sample, whisper.cpp (public domain)
+  - LJSpeech LJ001-0001 (public domain), via the Coqui TTS test data
+  - LibriSpeech is CC-BY-4.0 and is not included in this fixture.

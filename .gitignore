@@ -1,4 +1,7 @@
 .superpowers/
 /target/
-/models/
+/models/*
+!models/manifest.json
 /lib/
+*.ustt/
+*.ustt.partial/

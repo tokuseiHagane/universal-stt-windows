@@ -68,6 +68,12 @@ pub fn run_import(
         return Err(PipelineError::Exists(req.project_dir.clone()));
     }
     let started = Instant::now();
+    let mut last_fraction = 0.0f32;
+    let mut emit = |mut progress: Progress| {
+        progress.fraction = progress.fraction.max(last_fraction);
+        last_fraction = progress.fraction;
+        on_progress(progress);
+    };
     let partial = partial_dir(&req.project_dir);
     let _ = std::fs::remove_dir_all(&partial);
     let mut guard = PartialGuard {
@@ -76,7 +82,7 @@ pub fn run_import(
     };
 
     let tools = Tools::locate(None)?;
-    on_progress(Progress::new(Phase::Probe, 0.5, "probing"));
+    emit(Progress::new(Phase::Probe, 0.5, "probing"));
     let info = probe(&tools, &req.input)?;
     if cancel.load(Ordering::Relaxed) {
         return Err(PipelineError::Cancelled);
@@ -94,14 +100,14 @@ pub fn run_import(
     let source = SourceRef::new(&req.input)?;
     let (store, mut project) = ProjectStore::create(&partial, &title, source, kind, info.duration)?;
     let media_dir = store.media_dir();
-    on_progress(Progress::new(Phase::Probe, 1.0, "probed"));
+    emit(Progress::new(Phase::Probe, 1.0, "probed"));
 
     let wav = media_dir.join("audio16k.wav");
-    on_progress(Progress::new(Phase::Decode, 0.2, "decoding"));
+    emit(Progress::new(Phase::Decode, 0.2, "decoding"));
     decode_wav16k(&tools, &req.input, &wav)?;
     let waveform = waveform_from_wav(&wav, 20)?;
     std::fs::write(media_dir.join("waveform.bin"), waveform.to_bytes())?;
-    on_progress(Progress::new(Phase::Decode, 1.0, "decoded"));
+    emit(Progress::new(Phase::Decode, 1.0, "decoded"));
     if cancel.load(Ordering::Relaxed) {
         return Err(PipelineError::Cancelled);
     }
@@ -115,17 +121,17 @@ pub fn run_import(
             let stem = ustt_core::slugify(&title);
             scope.spawn(move || make_proxy(tools, input, media_dir, &stem, kind))
         });
-        on_progress(Progress::new(Phase::Proxy, 0.1, "preparing playback"));
+        emit(Progress::new(Phase::Proxy, 0.1, "preparing playback"));
         let mut who = WhoModel::load(&req.models.who_dir)?;
         let diarization = who.diarize(&samples, 16_000, &mut |fraction| {
-            on_progress(Progress::new(Phase::Diarize, fraction, "diarizing"));
+            emit(Progress::new(Phase::Diarize, fraction, "diarizing"));
         })?;
         let mut proxy = None;
         if let Some(handle) = proxy_handle {
             proxy = Some(handle.join().map_err(|_| PipelineError::Worker)??);
         }
         if let Some(proxy) = proxy {
-            on_progress(Progress::new(
+            emit(Progress::new(
                 Phase::Proxy,
                 1.0,
                 format!("proxy: {}", proxy.codec),
@@ -146,7 +152,7 @@ pub fn run_import(
     let transcript = transcribe_chunks(&mut asr, &mut vad, &wav, 30.0, &mut |fraction| {
         let elapsed = started.elapsed().as_secs_f64();
         let processed = info.duration * 0.15 + info.duration * 0.6 * fraction as f64;
-        on_progress(
+        emit(
             Progress::new(Phase::Transcribe, fraction, "transcribing").with_eta(estimate_eta(
                 processed,
                 info.duration,
@@ -158,21 +164,21 @@ pub fn run_import(
         return Err(PipelineError::Cancelled);
     }
 
-    on_progress(Progress::new(Phase::Merge, 0.3, "merging"));
+    emit(Progress::new(Phase::Merge, 0.3, "merging"));
     project.speakers = speakers_from_diarization(&diarization);
     let ids: Vec<_> = project.speakers.iter().map(|s| s.id).collect();
     project.segments = build_segments(&transcript.words, &diarization.turns, &ids, info.duration);
     project.turns = diarization.turns.clone();
     project.language = transcript.language.clone();
     store.save(&mut project)?;
-    on_progress(Progress::new(Phase::Merge, 1.0, "merged"));
+    emit(Progress::new(Phase::Merge, 1.0, "merged"));
 
     if req.project_dir.exists() {
         return Err(PipelineError::Exists(req.project_dir.clone()));
     }
     std::fs::rename(&partial, &req.project_dir)?;
     guard.keep = true;
-    on_progress(Progress::new(Phase::Done, 1.0, "done"));
+    emit(Progress::new(Phase::Done, 1.0, "done"));
     Ok(project)
 }
 
