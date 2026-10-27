@@ -1,0 +1,34 @@
+[package]
+name = "ustt-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "universal-stt"
+path = "src/main.rs"
+
+[features]
+default = ["desktop"]
+desktop = ["dioxus/desktop", "dep:rfd", "dep:dirs"]
+web = ["dioxus/web"]
+
+[dependencies]
+chrono.workspace = true
+dioxus = { version = "0.7.10" }
+futures-timer = "3"
+serde_json.workspace = true
+ustt-core = { path = "../core" }
+ustt-ui-model = { path = "../ui-model" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+dirs = { version = "6", optional = true }
+rfd = { version = "0.15", optional = true }
+ustt-media = { path = "../media" }
+ustt-pipeline = { path = "../pipeline" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+gloo-timers = { version = "0.3", features = ["futures"] }
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = ["Window", "Navigator"] }
+uuid = { workspace = true, features = ["js"] }

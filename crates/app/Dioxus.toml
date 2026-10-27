@@ -1,0 +1,7 @@
+[application]
+name = "Universal STT"
+default_platform = "desktop"
+public_dir = "assets"
+
+[web.app]
+title = "Universal STT"
