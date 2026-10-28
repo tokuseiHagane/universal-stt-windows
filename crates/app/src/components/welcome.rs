@@ -58,7 +58,7 @@ pub fn Welcome(props: WelcomeProps) -> Element {
         let dir = PathBuf::from("demo.ustt");
         props.on_start_import.call((input, dir));
     };
-    let start_url = move |raw: String| match parse_import_url(&raw) {
+    let mut start_url = move |raw: String| match parse_import_url(&raw) {
         Ok(url) => {
             url_error.set(None);
             start(ImportInput::Url(url));
