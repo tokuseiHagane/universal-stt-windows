@@ -17,7 +17,7 @@ struct HttpResponse {
 fn request(port: u16, method: &str, range: Option<&str>, body_limit: usize) -> HttpResponse {
     let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
     let mut request =
-        format!("GET /media/sample HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n");
+        "GET /media/sample HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n".to_string();
     request.replace_range(..3, method);
     if let Some(range) = range {
         request.push_str(&format!("Range: {range}\r\n"));
