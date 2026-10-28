@@ -14,6 +14,8 @@ ustt-core = { path = "../core" }
 ustt-media = { path = "../media" }
 ustt-diarize = { path = "../diarize" }
 ustt-asr = { path = "../asr" }
+ustt-download = { path = "../download" }
+url = "2"
 ash = "0.38"
 sha2.workspace = true
 libloading = "0.9"

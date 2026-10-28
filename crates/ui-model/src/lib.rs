@@ -12,6 +12,6 @@ pub use format::{date_label, duration_label, timecode};
 pub use i18n::{Lang, Strings, strings};
 pub use playback::Playback;
 pub use progress::{PhaseView, ProgressView};
-pub use timeline::{TimelineLayout, hit_segment};
+pub use timeline::{TimelineLayout, best_segment_for_turn, hit_segment};
 pub use transcript::{ROW_HEIGHT, VirtualRows, active_segment, virtual_rows};
 pub use wave::{WaveData, WavePoint};

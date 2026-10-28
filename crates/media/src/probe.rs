@@ -1,8 +1,8 @@
 use crate::MediaError;
+use crate::process::command;
 use crate::tools::Tools;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::process::Command;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct VideoStream {
@@ -66,7 +66,7 @@ struct Disposition {
 }
 
 pub fn probe(tools: &Tools, path: &Path) -> Result<MediaInfo, MediaError> {
-    let output = Command::new(&tools.ffprobe)
+    let output = command(&tools.ffprobe)
         .args([
             "-v",
             "error",

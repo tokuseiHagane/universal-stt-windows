@@ -13,7 +13,9 @@ pub enum PhaseView {
 pub struct ProgressView {
     pub phase: PhaseView,
     pub fraction: f32,
+    pub phase_fraction: f32,
     pub eta_seconds: Option<f64>,
+    pub phase_eta_seconds: Option<f64>,
     pub detail: String,
 }
 
@@ -22,7 +24,9 @@ impl ProgressView {
         Self {
             phase,
             fraction: fraction.clamp(0.0, 1.0),
+            phase_fraction: fraction.clamp(0.0, 1.0),
             eta_seconds: None,
+            phase_eta_seconds: None,
             detail: String::new(),
         }
     }

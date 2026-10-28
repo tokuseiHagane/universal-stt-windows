@@ -1,5 +1,6 @@
 pub mod decode;
 pub mod probe;
+pub mod process;
 pub mod proxy;
 pub mod tools;
 pub mod wav;

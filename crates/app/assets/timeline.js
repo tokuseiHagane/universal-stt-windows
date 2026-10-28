@@ -14,23 +14,25 @@ window.usttTimeline = {
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = scene.background || "#14171c";
     ctx.fillRect(0, 0, w, h);
-    const mid = h * 0.52;
+    const laneH = Math.min(h, scene.speakerLaneHeight || 28);
+    const waveH = h - laneH;
+    const mid = waveH * 0.52;
     const barW = Math.max(1, scene.barWidth || 1.5);
     if (scene.peaks) {
       ctx.fillStyle = scene.waveColor || "#5b6472";
       for (let i = 0; i < scene.peaks.length; i++) {
         const p = scene.peaks[i];
         const x = p.x * w;
-        const top = mid - p.max * h * 0.42;
-        const bottom = mid - p.min * h * 0.42;
+        const top = mid - p.max * waveH * 0.42;
+        const bottom = mid - p.min * waveH * 0.42;
         ctx.fillRect(x, top, barW, Math.max(1, bottom - top));
       }
     }
     if (scene.turns) {
       for (const t of scene.turns) {
         ctx.fillStyle = t.color;
-        ctx.globalAlpha = t.active ? 0.55 : 0.32;
-        ctx.fillRect(t.x0 * w, 0, Math.max(2, (t.x1 - t.x0) * w), h);
+        ctx.globalAlpha = t.active ? 1 : 0.82;
+        ctx.fillRect(t.x0 * w, waveH + 3, Math.max(2, (t.x1 - t.x0) * w), laneH - 6);
       }
       ctx.globalAlpha = 1;
     }

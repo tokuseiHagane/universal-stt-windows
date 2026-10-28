@@ -1,8 +1,8 @@
 use chrono::Utc;
-use ustt_core::{MediaKind, Project, Segment, SourceRef, Speaker};
+use ustt_core::{MediaKind, Project, Segment, SourceRef, Speaker, Turn};
 use ustt_ui_model::{
-    Lang, Playback, TimelineLayout, active_segment, date_label, rename_speaker, set_segment_text,
-    speaker_time, strings, timecode, virtual_rows,
+    Lang, Playback, TimelineLayout, active_segment, best_segment_for_turn, date_label,
+    rename_speaker, set_segment_text, speaker_time, strings, timecode, virtual_rows,
 };
 use uuid::Uuid;
 
@@ -14,6 +14,7 @@ fn sample_project() -> Project {
             size_bytes: 10,
             modified_unix: 0,
             fingerprint: "x".into(),
+            origin_url: None,
         },
         MediaKind::Audio,
         10.0,
@@ -103,6 +104,9 @@ fn both_languages_fill_every_string() {
     );
     assert_eq!(Lang::from_system(Some("ru-RU")), Lang::Ru);
     assert_eq!(Lang::from_system(Some("en-US")), Lang::En);
+    assert_eq!(Lang::from_preference(Some("ru"), Some("en-US")), Lang::Ru);
+    assert_eq!(Lang::from_preference(None, Some("ru-RU")), Lang::Ru);
+    assert_eq!(Lang::from_preference(Some("auto"), Some("en-US")), Lang::En);
 }
 
 #[test]
@@ -124,4 +128,37 @@ fn active_segment_and_formatting() {
     assert_eq!(active_segment(&p, 100.0), None);
     assert_eq!(timecode(3661.4), "01:01:01");
     assert_eq!(date_label(&Utc::now(), Lang::Ru).len(), 10);
+}
+
+#[test]
+fn best_segment_for_turn_prefers_max_overlap() {
+    let project = sample_project();
+    let turn = Turn {
+        start: 1.5,
+        end: 4.5,
+        speaker_index: 0,
+    };
+    assert_eq!(best_segment_for_turn(&project.segments, &turn), Some(1));
+}
+
+#[test]
+fn best_segment_for_turn_breaks_tie_by_earlier_segment() {
+    let project = sample_project();
+    let turn = Turn {
+        start: 1.0,
+        end: 4.0,
+        speaker_index: 0,
+    };
+    assert_eq!(best_segment_for_turn(&project.segments, &turn), Some(0));
+}
+
+#[test]
+fn best_segment_for_turn_rejects_no_overlap() {
+    let project = sample_project();
+    let turn = Turn {
+        start: 5.1,
+        end: 6.0,
+        speaker_index: 0,
+    };
+    assert_eq!(best_segment_for_turn(&project.segments, &turn), None);
 }

@@ -131,7 +131,7 @@ impl Service for NativeService {
                 }
             };
             let request = ImportRequest {
-                input,
+                input: ustt_pipeline::import::ImportSource::File(input),
                 project_dir,
                 models,
                 backend: backend.selected,
@@ -142,6 +142,7 @@ impl Service for NativeService {
             let outcome = run_import(&request, &flag, &mut |progress| {
                 let _ = sender.send(ImportEvent::Progress(ProgressView {
                     phase: match progress.phase {
+                        ustt_pipeline::progress::Phase::Download => PhaseView::Probe,
                         ustt_pipeline::progress::Phase::Probe => PhaseView::Probe,
                         ustt_pipeline::progress::Phase::Decode => PhaseView::Decode,
                         ustt_pipeline::progress::Phase::Proxy => PhaseView::Proxy,
@@ -151,7 +152,9 @@ impl Service for NativeService {
                         ustt_pipeline::progress::Phase::Done => PhaseView::Done,
                     },
                     fraction: progress.fraction,
+                    phase_fraction: progress.phase_fraction,
                     eta_seconds: progress.eta_seconds,
+                    phase_eta_seconds: progress.phase_eta_seconds,
                     detail: progress.detail,
                 }));
             });
@@ -238,10 +241,7 @@ impl Service for NativeService {
             MediaAsset::Proxy => "proxy",
             MediaAsset::Waveform => "waveform",
         };
-        let registry = media::shared().lock().unwrap();
-        registry
-            .resolve(&MediaRegistryUrl::of(token))
-            .map(|_| MediaRegistryUrl::of(token))
+        media::shared_url(token)
     }
 
     fn waveform(&self, store: &StoreHandle) -> Option<WaveData> {
@@ -385,14 +385,6 @@ impl Service for NativeService {
         let dir = documents_dir().join("Universal STT").join("Exports");
         let _ = std::fs::create_dir_all(&dir);
         Some(dir)
-    }
-}
-
-struct MediaRegistryUrl;
-
-impl MediaRegistryUrl {
-    fn of(token: &str) -> String {
-        format!("ustt://media/{token}")
     }
 }
 

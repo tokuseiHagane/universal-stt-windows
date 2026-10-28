@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::mpsc;
-use ustt_core::{MediaKind, Project, RecentEntry, Segment, Settings, SourceRef, Speaker, Word};
+use ustt_core::{
+    MediaKind, Project, RecentEntry, Segment, Settings, SourceRef, Speaker, Turn, Word,
+};
 use ustt_ui_model::{PhaseView, ProgressView, WaveData, WavePoint};
 use uuid::Uuid;
 
@@ -36,6 +38,7 @@ impl MockService {
                 size_bytes: 0,
                 modified_unix: 0,
                 fingerprint: "demo".into(),
+                origin_url: None,
             },
             kind,
             duration: 3.0,
@@ -83,6 +86,39 @@ impl MockService {
             })
             .collect();
         project.language = Some("en".into());
+        #[cfg(target_arch = "wasm32")]
+        if web_sys::window()
+            .and_then(|window| window.location().search().ok())
+            .is_some_and(|query| query.contains("long=1"))
+        {
+            project.segments = (0..60)
+                .map(|i| {
+                    let start = i as f64 * project.duration / 60.0;
+                    let end = (i + 1) as f64 * project.duration / 60.0;
+                    Segment {
+                        id: Uuid::from_u128(200 + i),
+                        start,
+                        end,
+                        text: format!("Long transcript row {}", i + 1),
+                        speaker_id: Some(Uuid::from_u128(101 + i % 2)),
+                        words: Vec::new(),
+                    }
+                })
+                .collect();
+        }
+        project.turns = project
+            .segments
+            .iter()
+            .map(|segment| Turn {
+                start: segment.start,
+                end: segment.end,
+                speaker_index: if segment.speaker_id == Some(Uuid::from_u128(101)) {
+                    0
+                } else {
+                    1
+                },
+            })
+            .collect();
         project
     }
 }
@@ -112,6 +148,22 @@ impl Service for MockService {
 
     fn import(&self, _input: PathBuf, _project_dir: PathBuf) -> ImportHandle {
         let (tx, rx) = mpsc::channel();
+        #[cfg(target_arch = "wasm32")]
+        if web_sys::window()
+            .and_then(|window| window.location().search().ok())
+            .is_some_and(|query| query.contains("processing=1"))
+        {
+            let mut progress = ProgressView::new(PhaseView::Diarize, 0.25);
+            progress.fraction = 0.25;
+            progress.phase_eta_seconds = Some(30.0);
+            progress.eta_seconds = Some(75.0);
+            progress.detail = "diarizing".into();
+            let _ = tx.send(ImportEvent::Progress(progress));
+            return ImportHandle {
+                rx,
+                cancel: Arc::new(AtomicBool::new(false)),
+            };
+        }
         for (phase, fraction) in [
             (PhaseView::Probe, 0.2),
             (PhaseView::Decode, 0.5),

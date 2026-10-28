@@ -1,4 +1,4 @@
-use ustt_core::Segment;
+use ustt_core::{Segment, Turn};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TimelineLayout {
@@ -58,4 +58,17 @@ pub fn hit_segment(segments: &[Segment], seconds: f64) -> Option<usize> {
     segments
         .iter()
         .position(|s| seconds >= s.start && seconds <= s.end)
+}
+
+pub fn best_segment_for_turn(segments: &[Segment], turn: &Turn) -> Option<usize> {
+    let mut best = None;
+    let mut best_overlap = 0.0f64;
+    for (index, segment) in segments.iter().enumerate() {
+        let overlap = (segment.end.min(turn.end) - segment.start.max(turn.start)).max(0.0);
+        if overlap > best_overlap + 1e-9 {
+            best = Some(index);
+            best_overlap = overlap;
+        }
+    }
+    best
 }

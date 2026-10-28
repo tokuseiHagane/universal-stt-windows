@@ -38,3 +38,14 @@ test("video demo splits transcript and preview", async ({ page }) => {
   await expect(page.getByTestId("project")).toBeVisible();
   await expect(page.locator('.preview video')).toBeVisible();
 });
+
+test("failed media shows a localized player error", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("demo-video").click();
+  await expect(page.locator('.preview video')).toBeVisible();
+  await page.locator('.preview video').evaluate((video: HTMLVideoElement) => {
+    video.src = "http://127.0.0.1:1/unavailable.mp4";
+    video.load();
+  });
+  await expect(page.getByTestId("player-error")).toContainText("Could not play");
+});

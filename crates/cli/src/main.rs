@@ -8,7 +8,7 @@ use ustt_export::{
 };
 use ustt_media::{Tools, probe};
 use ustt_pipeline::backend::{detect, detect_with};
-use ustt_pipeline::import::{ImportRequest, run_import};
+use ustt_pipeline::import::{ImportRequest, ImportSource, run_import};
 use ustt_pipeline::models::{resolve_models, verify_models};
 use ustt_pipeline::progress::Progress;
 
@@ -81,7 +81,7 @@ fn process(args: &[String]) -> Result<(), String> {
     let models = resolve_models(std::path::Path::new(&models), detection.selected)
         .map_err(|e| e.to_string())?;
     let req = ImportRequest {
-        input: PathBuf::from(input),
+        input: ImportSource::parse(input)?,
         project_dir: PathBuf::from(&project),
         models,
         backend: detection.selected,

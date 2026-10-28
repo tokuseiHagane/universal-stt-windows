@@ -12,6 +12,7 @@ pub struct TranscriptProps {
     pub on_seek: EventHandler<f64>,
     pub on_edit: EventHandler<(Uuid, String)>,
     pub selected_segments: Signal<HashSet<Uuid>>,
+    pub scroll_request: Signal<Option<usize>>,
 }
 
 #[component]
@@ -50,6 +51,21 @@ pub fn Transcript(mut props: TranscriptProps) -> Element {
             spawn(async move {
                 let _ = document::eval(&code).await;
             });
+        }
+    });
+
+    let mut scroll_request = props.scroll_request;
+    use_effect(move || {
+        if let Some(index) = scroll_request() {
+            autoscroll.set(true);
+            let top = index as f64 * ROW_HEIGHT;
+            let code = format!(
+                "window.usttTimeline && window.usttTimeline.scrollToOffset('.transcript-scroll', {top});"
+            );
+            spawn(async move {
+                let _ = document::eval(&code).await;
+            });
+            scroll_request.set(None);
         }
     });
 

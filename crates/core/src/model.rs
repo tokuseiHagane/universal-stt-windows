@@ -22,6 +22,8 @@ pub struct SourceRef {
     pub size_bytes: u64,
     pub modified_unix: i64,
     pub fingerprint: String,
+    #[serde(default)]
+    pub origin_url: Option<String>,
 }
 
 impl SourceRef {
@@ -57,6 +59,7 @@ impl SourceRef {
             size_bytes,
             modified_unix,
             fingerprint: format!("{:x}", hasher.finalize()),
+            origin_url: None,
         })
     }
 }
@@ -197,6 +200,7 @@ mod tests {
             size_bytes: 2048,
             modified_unix: 1_700_000_000,
             fingerprint: "abc".into(),
+            origin_url: None,
         }
     }
 
@@ -229,6 +233,18 @@ mod tests {
         let back: Project = serde_json::from_str(&json).unwrap();
         assert_eq!(back, p);
         assert_eq!(back.schema, 1);
+    }
+
+    #[test]
+    fn old_source_json_without_origin_url_still_loads() {
+        let source: SourceRef = serde_json::from_value(serde_json::json!({
+            "path": "old.wav",
+            "size_bytes": 12,
+            "modified_unix": 1,
+            "fingerprint": "abc"
+        }))
+        .unwrap();
+        assert_eq!(source.origin_url, None);
     }
 
     #[test]

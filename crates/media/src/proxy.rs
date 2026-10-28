@@ -1,8 +1,8 @@
 use crate::MediaError;
 use crate::probe::probe;
+use crate::process::command;
 use crate::tools::Tools;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use ustt_core::MediaKind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -12,7 +12,7 @@ pub struct ProxyInfo {
 }
 
 fn encoder_names(tools: &Tools) -> Result<Vec<String>, MediaError> {
-    let output = Command::new(&tools.ffmpeg)
+    let output = command(&tools.ffmpeg)
         .args(["-hide_banner", "-encoders"])
         .output()?;
     if !output.status.success() {
@@ -104,7 +104,7 @@ fn encode(
     path: &Path,
     encoder: Option<&str>,
 ) -> Result<(), MediaError> {
-    let mut cmd = Command::new(&tools.ffmpeg);
+    let mut cmd = command(&tools.ffmpeg);
     cmd.args(["-y", "-i"]).arg(source);
     match encoder {
         None => {

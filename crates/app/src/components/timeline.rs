@@ -1,10 +1,22 @@
 use super::player;
 use dioxus::prelude::*;
-use ustt_core::Project;
-use ustt_ui_model::{Lang, Playback, TimelineLayout, WaveData, strings, timecode};
+use ustt_core::{Project, Turn};
+use ustt_ui_model::{
+    Lang, Playback, TimelineLayout, WaveData, best_segment_for_turn, strings, timecode,
+};
+
+pub const TIMELINE_WAVE_HEIGHT: f64 = 92.0;
+pub const SPEAKER_LANE_HEIGHT: f64 = 28.0;
 
 pub fn timeline_click_to_time(x: f64, layout: &TimelineLayout) -> f64 {
     layout.time(x)
+}
+
+pub fn timeline_turn_at(x: f64, layout: &TimelineLayout, turns: &[Turn]) -> Option<usize> {
+    turns.iter().position(|turn| {
+        x >= layout.x(turn.start).min(layout.x(turn.end))
+            && x <= layout.x(turn.start).max(layout.x(turn.end))
+    })
 }
 
 pub fn canvas_peaks(peaks: &[ustt_ui_model::WavePoint], width_px: usize) -> Vec<(f32, f32)> {
@@ -33,6 +45,7 @@ pub struct TimelineProps {
     pub project: Project,
     pub wave: WaveData,
     pub on_seek: EventHandler<f64>,
+    pub on_turn: EventHandler<usize>,
 }
 
 #[component]
@@ -41,8 +54,14 @@ pub fn Timeline(props: TimelineProps) -> Element {
     let mut layout =
         use_signal(|| TimelineLayout::new(20.0, 900.0, props.project.duration.max(1.0)));
     let mut width = use_signal(|| 900.0f64);
+    let mut lane_tooltip = use_signal(String::new);
     let text = strings(props.lang);
     let duration = props.project.duration.max(0.001);
+    let scene_turns = props.project.turns.clone();
+    let click_turns = props.project.turns.clone();
+    let click_segments = props.project.segments.clone();
+    let hover_turns = props.project.turns.clone();
+    let hover_speakers = props.project.speakers.clone();
 
     let scene = use_memo(move || {
         let layout = layout();
@@ -59,9 +78,7 @@ pub fn Timeline(props: TimelineProps) -> Element {
                 })
             })
             .collect();
-        let turns: Vec<serde_json::Value> = props
-            .project
-            .turns
+        let turns: Vec<serde_json::Value> = scene_turns
             .iter()
             .map(|turn| {
                 serde_json::json!({
@@ -76,6 +93,7 @@ pub fn Timeline(props: TimelineProps) -> Element {
             "peaks": wave,
             "turns": turns,
             "barWidth": 1.5,
+            "speakerLaneHeight": SPEAKER_LANE_HEIGHT,
         })
         .to_string()
     });
@@ -118,6 +136,7 @@ pub fn Timeline(props: TimelineProps) -> Element {
                 canvas {
                     id: "timeline",
                     "data-testid": "timeline",
+                    title: "{lane_tooltip}",
                     onmounted: move |evt| {
                         spawn(async move {
                             if let Ok(rect) = evt.get_client_rect().await {
@@ -128,10 +147,37 @@ pub fn Timeline(props: TimelineProps) -> Element {
                         });
                     },
                     onclick: move |evt| {
-                        let x = evt.element_coordinates().x;
-                        let seconds = timeline_click_to_time(x, &layout());
+                        let point = evt.element_coordinates();
+                        if point.y >= TIMELINE_WAVE_HEIGHT {
+                            if let Some(turn_index) = timeline_turn_at(point.x, &layout(), &click_turns) {
+                                let turn = click_turns[turn_index];
+                                seek_abs(turn.start);
+                                if let Some(segment) = best_segment_for_turn(&click_segments, &turn) {
+                                    props.on_turn.call(segment);
+                                }
+                            }
+                            return;
+                        }
+                        let seconds = timeline_click_to_time(point.x, &layout());
                         seek_abs(seconds);
                     },
+                    onmousemove: move |evt| {
+                        let point = evt.element_coordinates();
+                        if point.y < TIMELINE_WAVE_HEIGHT {
+                            lane_tooltip.set(String::new());
+                            return;
+                        }
+                        let tooltip = timeline_turn_at(point.x, &layout(), &hover_turns)
+                            .and_then(|index| hover_turns.get(index))
+                            .map(|turn| {
+                                let name = hover_speakers.get(turn.speaker_index as usize)
+                                    .map(|speaker| speaker.name.clone())
+                                    .unwrap_or_else(|| format!("#{}", turn.speaker_index + 1));
+                                format!("{name} · {}–{}", timecode(turn.start), timecode(turn.end))
+                            });
+                        lane_tooltip.set(tooltip.unwrap_or_default());
+                    },
+                    onmouseleave: move |_| lane_tooltip.set(String::new()),
                     onwheel: move |evt| {
                         evt.prevent_default();
                         let delta = evt.delta().strip_units().y;

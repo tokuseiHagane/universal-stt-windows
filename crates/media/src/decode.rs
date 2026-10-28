@@ -1,7 +1,7 @@
 use crate::MediaError;
+use crate::process::command;
 use crate::tools::Tools;
 use std::path::Path;
-use std::process::Command;
 
 pub fn decode_wav16k(tools: &Tools, source: &Path, dest: &Path) -> Result<(), MediaError> {
     if let Some(parent) = dest.parent()
@@ -10,7 +10,7 @@ pub fn decode_wav16k(tools: &Tools, source: &Path, dest: &Path) -> Result<(), Me
         std::fs::create_dir_all(parent)?;
     }
 
-    let output = Command::new(&tools.ffmpeg)
+    let output = command(&tools.ffmpeg)
         .args(["-y", "-i"])
         .arg(source)
         .args(["-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le"])

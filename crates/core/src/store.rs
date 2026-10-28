@@ -103,6 +103,7 @@ mod tests {
             size_bytes: 10,
             modified_unix: 0,
             fingerprint: "abc".into(),
+            origin_url: None,
         }
     }
 

@@ -4,7 +4,7 @@ use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use ustt_core::{AudioFormat, Project};
-use ustt_media::Tools;
+use ustt_media::{Tools, process::command};
 use uuid::Uuid;
 
 pub const PAUSE_S: f64 = 0.4;
@@ -177,7 +177,7 @@ pub fn extract(
             let batch_path = temp.path().join(format!("track-{index}-{batch_index}.wav"));
             let is_last_batch = batch_index + 1 == track.ranges.chunks(BATCH).len();
             let graph = graph_for(chunk, !is_last_batch);
-            let mut command = Command::new(&tools.ffmpeg);
+            let mut command = command(&tools.ffmpeg);
             command
                 .args(["-y", "-v", "error", "-i"])
                 .arg(wav)
@@ -210,7 +210,7 @@ pub fn extract(
                 ));
             }
             std::fs::write(&list, body)?;
-            let mut command = Command::new(&tools.ffmpeg);
+            let mut command = command(&tools.ffmpeg);
             command
                 .args(["-y", "-v", "error", "-f", "concat", "-safe", "0", "-i"])
                 .arg(&list)
@@ -222,7 +222,7 @@ pub fn extract(
             temp_out
         } else {
             let encoded = temp.path().join(format!("track-{index}.m4a"));
-            let mut command = Command::new(&tools.ffmpeg);
+            let mut command = command(&tools.ffmpeg);
             command
                 .args(["-y", "-v", "error", "-i"])
                 .arg(&temp_out)

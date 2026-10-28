@@ -12,6 +12,13 @@ impl Lang {
         }
     }
 
+    pub fn from_preference(preference: Option<&str>, system: Option<&str>) -> Self {
+        match preference {
+            Some("auto") | None => Self::from_system(system),
+            Some(locale) => Self::from_system(Some(locale)),
+        }
+    }
+
     pub fn code(self) -> &'static str {
         match self {
             Self::Ru => "ru",
@@ -42,6 +49,8 @@ pub struct Strings {
     pub phase_merge: &'static str,
     pub phase_done: &'static str,
     pub eta_prefix: &'static str,
+    pub phase_eta_prefix: &'static str,
+    pub overall_eta_prefix: &'static str,
     pub save: &'static str,
     pub saved: &'static str,
     pub unsaved: &'static str,
@@ -78,6 +87,7 @@ pub struct Strings {
     pub error: &'static str,
     pub dismiss: &'static str,
     pub proxy_missing: &'static str,
+    pub player_error: &'static str,
     pub open_project: &'static str,
     pub project_missing: &'static str,
     pub speaker_filter_hint: &'static str,
@@ -125,6 +135,8 @@ static RU: Strings = Strings {
     phase_merge: "Сборка транскрипта",
     phase_done: "Готово",
     eta_prefix: "Осталось",
+    phase_eta_prefix: "Осталось по этапу",
+    overall_eta_prefix: "Осталось всего",
     save: "Сохранить",
     saved: "Сохранено",
     unsaved: "Не сохранено",
@@ -161,6 +173,7 @@ static RU: Strings = Strings {
     error: "Ошибка",
     dismiss: "Скрыть",
     proxy_missing: "Прокси недоступен — транскрипт остаётся рабочим",
+    player_error: "Не удалось воспроизвести медиа — проверьте прокси",
     open_project: "Открыть проект",
     project_missing: "Проект не найден или повреждён",
     speaker_filter_hint: "Клик по спикеру подсвечивает его реплики",
@@ -201,6 +214,8 @@ static EN: Strings = Strings {
     phase_merge: "Building the transcript",
     phase_done: "Done",
     eta_prefix: "Remaining",
+    phase_eta_prefix: "Phase remaining",
+    overall_eta_prefix: "Total remaining",
     save: "Save",
     saved: "Saved",
     unsaved: "Unsaved",
@@ -237,6 +252,7 @@ static EN: Strings = Strings {
     error: "Error",
     dismiss: "Dismiss",
     proxy_missing: "Proxy unavailable — the transcript still works",
+    player_error: "Could not play this media — check the proxy",
     open_project: "Open project",
     project_missing: "Project is missing or damaged",
     speaker_filter_hint: "Click a speaker to highlight their lines",

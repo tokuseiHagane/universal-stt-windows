@@ -92,14 +92,22 @@ pub struct ProjectViewProps {
 pub fn ProjectView(props: ProjectViewProps) -> Element {
     let service = use_context::<Arc<dyn Service>>();
     let session = use_context::<Signal<Option<ProjectSession>>>();
-    let playback = use_context::<Signal<Playback>>();
+    let mut playback = use_context::<Signal<Playback>>();
     let text = strings(props.lang);
     let project = session.read().as_ref().map(|s| s.history.current().clone());
     let recent_signal = use_context::<Signal<Vec<ustt_core::RecentEntry>>>();
     let selected_speaker = use_signal(|| None::<uuid::Uuid>);
     let selected_segments = use_signal(HashSet::<uuid::Uuid>::new);
+    let mut scroll_request = use_signal(|| None::<usize>);
     let mut export_open = use_signal(|| false);
     let mut project_error = use_signal(|| None::<String>);
+    let mut player_error = use_signal(|| false);
+    let project_id = use_memo(move || session.read().as_ref().map(|s| s.history.current().id));
+    use_effect(move || {
+        project_id();
+        player_error.set(false);
+        playback.write().seek(0.0);
+    });
     use_effect(move || player::bind(playback));
     use_drop(|| {
         spawn(async move {
@@ -309,6 +317,7 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
                     on_seek: seek,
                     on_edit: edit_text,
                     selected_segments,
+                    scroll_request,
                 }
                 if project.kind == MediaKind::Video {
                     div { class: "preview",
@@ -320,10 +329,16 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
                                 src: "{proxy_url}",
                                 preload: "metadata",
                                 playsinline: true,
+                                onerror: move |_| player_error.set(true),
+                                onstalled: move |_| player_error.set(true),
+                                oncanplay: move |_| player_error.set(false),
                             }
                         }
                     }
                 }
+            }
+            if player_error() {
+                div { class: "player-error", "data-testid": "player-error", role: "alert", "{text.player_error}" }
             }
             if project.kind == MediaKind::Audio {
                 audio {
@@ -331,6 +346,9 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
                     src: "{audio_url}",
                     preload: "metadata",
                     style: "display:none;",
+                    onerror: move |_| player_error.set(true),
+                    onstalled: move |_| player_error.set(true),
+                    oncanplay: move |_| player_error.set(false),
                 }
             }
             Timeline {
@@ -338,6 +356,7 @@ pub fn ProjectView(props: ProjectViewProps) -> Element {
                 project: project.clone(),
                 wave,
                 on_seek: seek,
+                on_turn: move |index| scroll_request.set(Some(index)),
             }
             if export_open() {
                 ExportModal {
@@ -371,6 +390,7 @@ mod tests {
                 size_bytes: 1,
                 modified_unix: 0,
                 fingerprint: "x".into(),
+                origin_url: None,
             },
             MediaKind::Audio,
             10.0,

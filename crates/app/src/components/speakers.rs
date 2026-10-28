@@ -23,9 +23,10 @@ pub fn SpeakerBar(props: SpeakerBarProps) -> Element {
                     let color = format!("var(--speaker-{})", speaker.color % 8);
                     let selected = props.selected;
                     let active = selected() == Some(id);
+                    let filtering = selected().is_some();
                     rsx! {
                         div {
-                            class: if active { "chip" } else { "chip dim" },
+                            class: if !filtering || active { "chip" } else { "chip dim" },
                             "data-testid": "speaker-chip",
                             onclick: move |_| {
                                 let mut selected = selected;

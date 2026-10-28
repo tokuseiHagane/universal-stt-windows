@@ -31,8 +31,13 @@ const MAIN_CSS: Asset = asset!("/assets/main.css");
 #[component]
 pub fn App() -> Element {
     let service = use_context_provider(crate::service::open_service);
-    let mut lang = use_signal(|| Lang::from_system(system_locale().as_deref()));
     let mut settings = use_signal(|| service.settings());
+    let mut lang = use_signal(|| {
+        Lang::from_preference(
+            settings.read().language.as_deref(),
+            system_locale().as_deref(),
+        )
+    });
     let mut theme = use_signal(|| settings.read().theme.clone());
     let mut screen = use_signal(|| Screen::Welcome);
     let mut pending = use_signal(|| None::<ImportHandle>);
@@ -338,12 +343,10 @@ pub fn App() -> Element {
                     on_close: move |_| settings_open.set(false),
                     on_saved: move |next: ustt_core::Settings| {
                         theme.set(next.theme.clone());
-                        lang.set(
-                            next.language
-                                .as_deref()
-                                .map(|code| Lang::from_system(Some(code)))
-                                .unwrap_or_else(|| Lang::from_system(system_locale().as_deref())),
-                        );
+                        lang.set(Lang::from_preference(
+                            next.language.as_deref(),
+                            system_locale().as_deref(),
+                        ));
                         settings.set(next);
                     },
                 }
@@ -366,10 +369,22 @@ fn system_locale() -> Option<String> {
             .and_then(|w| w.navigator().language())
             .or_else(|| Some("en".into()))
     }
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(windows)]
+    {
+        windows_locale().or_else(|| std::env::var("LANG").ok())
+    }
+    #[cfg(all(not(windows), not(target_arch = "wasm32")))]
     {
         std::env::var("LANG").ok()
     }
+}
+
+#[cfg(windows)]
+fn windows_locale() -> Option<String> {
+    use windows_sys::Win32::Globalization::GetUserDefaultLocaleName;
+    let mut buffer = [0u16; 85];
+    let length = unsafe { GetUserDefaultLocaleName(buffer.as_mut_ptr(), buffer.len() as i32) };
+    (length > 1).then(|| String::from_utf16_lossy(&buffer[..length as usize - 1]))
 }
 
 #[cfg(test)]

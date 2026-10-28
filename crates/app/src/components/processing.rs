@@ -23,10 +23,15 @@ fn eta_value(seconds: f64) -> String {
     }
 }
 
+#[cfg(test)]
 pub fn eta_text(eta: Option<f64>, lang: Lang) -> String {
+    eta_text_with_prefix(eta, strings(lang).eta_prefix)
+}
+
+fn eta_text_with_prefix(eta: Option<f64>, prefix: &str) -> String {
     match eta {
-        Some(seconds) => format!("{}: {}", strings(lang).eta_prefix, eta_value(seconds)),
-        None => format!("{}: —", strings(lang).eta_prefix),
+        Some(seconds) => format!("{}: {}", prefix, eta_value(seconds)),
+        None => format!("{}: —", prefix),
     }
 }
 
@@ -76,7 +81,16 @@ pub fn Processing(props: ProcessingProps) -> Element {
                     }
                     div { class: "progress-meta",
                         span { "{props.progress.as_ref().map(|p| p.detail.clone()).unwrap_or_default()}" }
-                        span { "{eta_text(props.progress.as_ref().and_then(|p| p.eta_seconds), props.lang)}" }
+                    }
+                    div { class: "progress-meta processing-etas",
+                        span {
+                            "data-testid": "phase-eta",
+                            "{eta_text_with_prefix(props.progress.as_ref().and_then(|p| p.phase_eta_seconds), text.phase_eta_prefix)}"
+                        }
+                        span {
+                            "data-testid": "overall-eta",
+                            "{eta_text_with_prefix(props.progress.as_ref().and_then(|p| p.eta_seconds), text.overall_eta_prefix)}"
+                        }
                     }
                     div { class: "modal-actions",
                         button {

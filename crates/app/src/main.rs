@@ -2,6 +2,9 @@ mod app;
 mod components;
 pub mod service;
 
+#[cfg(any(windows, test))]
+use std::path::{Path, PathBuf};
+
 fn main() {
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -9,16 +12,6 @@ fn main() {
         #[cfg(windows)]
         prepare_webview();
         let config = Config::new()
-            .with_asynchronous_custom_protocol("ustt", |_id, request, responder| {
-                let uri = request.uri().to_string();
-                let method = request.method().as_str().to_string();
-                let range = request
-                    .headers()
-                    .get("range")
-                    .and_then(|value| value.to_str().ok())
-                    .map(str::to_string);
-                responder.respond(service::media::respond(&uri, &method, range.as_deref()));
-            })
             .with_window(
                 WindowBuilder::new()
                     .with_title("Universal STT")
@@ -31,6 +24,9 @@ fn main() {
             Ok(extra) if !extra.trim().is_empty() => config.with_windows_browser_args(extra),
             _ => config,
         };
+        if let Err(err) = service::media::start_shared() {
+            eprintln!("media server: {err}");
+        }
         dioxus::LaunchBuilder::desktop()
             .with_cfg(config)
             .launch(app::App);
@@ -42,18 +38,24 @@ fn main() {
     }
 }
 
+#[cfg(any(windows, test))]
+fn portable_webview_data(exe_dir: &Path) -> PathBuf {
+    exe_dir.join("WebView2Data")
+}
+
 /// Uses the WebView2 fixed-version runtime shipped in the portable ZIP, so the
 /// user does not have to install the Evergreen runtime. Windows 10 requires
 /// AppContainer ACLs for unpackaged Fixed Version apps (WebView2 >= 120).
 #[cfg(windows)]
 fn prepare_webview() {
-    use std::process::Command;
-    let Some(dir) = std::env::current_exe()
+    use ustt_media::process::command;
+    let Some(exe_dir) = std::env::current_exe()
         .ok()
-        .and_then(|exe| exe.parent().map(|parent| parent.join("WebView2Runtime")))
+        .and_then(|exe| exe.parent().map(Path::to_path_buf))
     else {
         return;
     };
+    let dir = exe_dir.join("WebView2Runtime");
     if !dir.join("msedgewebview2.exe").is_file() {
         return;
     }
@@ -61,11 +63,28 @@ fn prepare_webview() {
         // SAFETY: called once at startup before the WebView2 environment exists.
         unsafe { std::env::set_var("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER", &dir) };
     }
+    if std::env::var_os("WEBVIEW2_USER_DATA_FOLDER").is_none() {
+        // Avoid sharing a corrupt or incompatible cache with an installed WebView2.
+        unsafe { std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", portable_webview_data(&exe_dir)) };
+    }
     for sid in ["S-1-15-2-2", "S-1-15-2-1"] {
-        let _ = Command::new("icacls")
+        let _ = command("icacls")
             .arg(&dir)
             .arg("/grant")
             .arg(format!("*{sid}:(OI)(CI)(RX)"))
             .status();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn webview_cache_is_portable_next_to_the_executable() {
+        assert_eq!(
+            portable_webview_data(Path::new("/opt/UniversalSTT")),
+            PathBuf::from("/opt/UniversalSTT/WebView2Data")
+        );
     }
 }

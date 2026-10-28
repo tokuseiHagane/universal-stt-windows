@@ -11,6 +11,7 @@ fn sample_project() -> Project {
             size_bytes: 1,
             modified_unix: 0,
             fingerprint: "x".into(),
+            origin_url: None,
         },
         MediaKind::Audio,
         60.0,
