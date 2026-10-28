@@ -16,6 +16,12 @@ def test_self_test_rejects_missing_dependency(tmp_path: Path) -> None:
     assert "ffmpeg.exe" in package.validate_layout(deps, manifest)
 
 
+def test_self_test_rejects_missing_deno(tmp_path: Path) -> None:
+    deps, manifest, _ = package.make_fixture(tmp_path)
+    (deps / "deno.exe").unlink()
+    assert "deno.exe" in package.validate_layout(deps, manifest)
+
+
 def test_self_test_rejects_bad_hash(tmp_path: Path) -> None:
     deps, manifest, _ = package.make_fixture(tmp_path)
     (deps / "models" / "redux-packed.gguf").write_bytes(b"tampered")
@@ -39,6 +45,8 @@ def test_build_zip_layout_and_compression(tmp_path: Path) -> None:
         assert "models/who/who_meta.json" in zf.namelist()
         assert "models/manifest.json" in zf.namelist()
         assert "swscale-9.dll" in zf.namelist()
+        assert "yt-dlp.exe" in zf.namelist()
+        assert "deno.exe" in zf.namelist()
         assert "assets/main.css" in zf.namelist()
         assert zf.getinfo("models/redux-packed.gguf").compress_type == zipfile.ZIP_STORED
         assert zf.getinfo("UniversalSTT.exe").compress_type == zipfile.ZIP_DEFLATED

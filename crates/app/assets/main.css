@@ -144,6 +144,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 }
 .dropzone:hover, .dropzone.drag { border-color: var(--accent); background: var(--accent-soft); }
 .dropzone .hint { color: var(--muted); }
+.url-import { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+.url-input { min-width: 0; min-height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); }
+.url-input::placeholder { color: var(--muted); }
+.url-input:focus { border-color: var(--accent); outline: 2px solid var(--accent-soft); outline-offset: 1px; }
+.url-error { margin-top: -12px; color: var(--danger); font-size: 13px; }
 .recent { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .recent h2 { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 .recent-list { display: flex; flex-direction: column; gap: 8px; overflow: auto; }

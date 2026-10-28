@@ -1,6 +1,6 @@
 use super::{
-    ExportEvent, ExportJob, ExportRequest, ImportEvent, ImportHandle, MediaAsset, Service,
-    StoreHandle,
+    ExportEvent, ExportJob, ExportRequest, ImportEvent, ImportHandle, ImportInput, MediaAsset,
+    Service, StoreHandle,
 };
 use dioxus::prelude::*;
 use std::path::{Path, PathBuf};
@@ -146,8 +146,12 @@ impl Service for MockService {
         None
     }
 
-    fn import(&self, _input: PathBuf, _project_dir: PathBuf) -> ImportHandle {
+    fn import(&self, input: ImportInput, _project_dir: PathBuf) -> ImportHandle {
         let (tx, rx) = mpsc::channel();
+        let remote_url = match input {
+            ImportInput::File(_) => None,
+            ImportInput::Url(url) => Some(url),
+        };
         #[cfg(target_arch = "wasm32")]
         if web_sys::window()
             .and_then(|window| window.location().search().ok())
@@ -164,6 +168,11 @@ impl Service for MockService {
                 cancel: Arc::new(AtomicBool::new(false)),
             };
         }
+        if remote_url.is_some() {
+            let mut download = ProgressView::new(PhaseView::Download, 0.125);
+            download.detail = "downloading".into();
+            let _ = tx.send(ImportEvent::Progress(download));
+        }
         for (phase, fraction) in [
             (PhaseView::Probe, 0.2),
             (PhaseView::Decode, 0.5),
@@ -172,17 +181,25 @@ impl Service for MockService {
         ] {
             let _ = tx.send(ImportEvent::Progress(ProgressView::new(phase, fraction)));
         }
-        let _ = tx.send(ImportEvent::Finished(Box::new(Self::project(
-            MediaKind::Audio,
-        ))));
+        let mut project = Self::project(MediaKind::Audio);
+        if let Some(url) = remote_url {
+            project.title = "Remote demo".into();
+            project.source.origin_url = Some(url);
+        }
+        let _ = tx.send(ImportEvent::Finished(Box::new(project)));
         ImportHandle {
             rx,
             cancel: Arc::new(AtomicBool::new(false)),
         }
     }
 
-    fn open(&self, _dir: &Path) -> Result<(StoreHandle, Project), String> {
-        Err("The web demo cannot open local projects".into())
+    fn open(&self, dir: &Path) -> Result<(StoreHandle, Project), String> {
+        let kind = if dir.to_string_lossy().contains("video") {
+            MediaKind::Video
+        } else {
+            MediaKind::Audio
+        };
+        Ok((StoreHandle::new(dir), Self::project(kind)))
     }
 
     fn save(&self, _store: &StoreHandle, _project: &mut Project) -> Result<(), String> {

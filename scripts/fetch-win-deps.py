@@ -25,6 +25,18 @@ FFMPEG = (
     "ffmpeg-n8.1.3-24-g92611900bb-win64-lgpl-shared-8.1.zip"
 )
 FFMPEG_SHA256 = "6c6167da57decb941a0466b60d95f7f51e4edd6b2d79c24dc4860c1c15701292"
+YT_DLP_VERSION = "2026.10.26"
+YT_DLP = (
+    "https://github.com/yt-dlp/yt-dlp/releases/download/"
+    f"{YT_DLP_VERSION}/yt-dlp.exe"
+)
+YT_DLP_SHA256 = "f5389d3698ecde4ef06f4e6b1ce0294fe9ac1396228c8990b8d3416d6d177a7d"
+DENO_VERSION = "2.9.8"
+DENO = (
+    "https://github.com/denoland/deno/releases/download/"
+    f"v{DENO_VERSION}/deno-x86_64-pc-windows-msvc.zip"
+)
+DENO_SHA256 = "cba84b26e0df5ae7f74fc66b86a95b866872a86292ebd84fa1e959927edd93bf"
 WEBVIEW2_VERSION = "156.0.4314.50"
 WEBVIEW2_RUNTIME = (
     "https://api.nuget.org/v3-flatcontainer/webview2.runtime.x64/"
@@ -132,6 +144,30 @@ def install_ffmpeg(dest: Path, work: Path) -> None:
         shutil.copy2(dll, dest / dll.name)
 
 
+def install_downloaders(dest: Path, work: Path) -> None:
+    yt_dlp = dest / "yt-dlp.exe"
+    if not yt_dlp.is_file() or sha256(yt_dlp) != YT_DLP_SHA256:
+        download(YT_DLP, yt_dlp)
+    if sha256(yt_dlp) != YT_DLP_SHA256:
+        raise SystemExit("yt-dlp.exe sha256 mismatch")
+
+    deno = dest / "deno.exe"
+    if deno.is_file():
+        print("present: deno.exe")
+        return
+    archive = work / "deno.zip"
+    download(DENO, archive)
+    if sha256(archive) != DENO_SHA256:
+        raise SystemExit("deno archive sha256 mismatch")
+    with zipfile.ZipFile(archive) as zf:
+        try:
+            source = zf.open("deno.exe")
+        except KeyError as error:
+            raise SystemExit("deno.exe not found in the Deno archive") from error
+        with source, deno.open("wb") as target:
+            shutil.copyfileobj(source, target, 1 << 20)
+
+
 def install_webview2(dest: Path, work: Path) -> None:
     runtime = dest / WEBVIEW2_FOLDER
     if (runtime / "msedgewebview2.exe").is_file():
@@ -213,6 +249,8 @@ REQUIRED = [
     "onnxruntime.dll",
     "ffmpeg.exe",
     "ffprobe.exe",
+    "yt-dlp.exe",
+    "deno.exe",
     WEBVIEW2_LOADER,
     *VC_DLLS,
     f"{WEBVIEW2_FOLDER}/msedgewebview2.exe",
@@ -280,6 +318,7 @@ def main() -> int:
         install_parakeet(dest, work)
         install_ort(dest, work)
         install_ffmpeg(dest, work)
+        install_downloaders(dest, work)
         install_vc_runtime(dest, work)
         if not args.skip_webview2:
             install_webview2(dest, work)

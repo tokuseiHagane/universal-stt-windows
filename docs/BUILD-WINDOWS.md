@@ -28,8 +28,10 @@ python scripts/fetch-win-deps.py --dest vendor/win64
 ```
 
 `fetch-win-deps.py` downloads the pinned parakeet.cpp CPU/Vulkan libraries,
-ONNX Runtime, a pinned FFmpeg LGPL shared build (with SHA-256 check), the
-**offline** WebView2 x64 installer, the VC++ redistributable and the models. Models are verified against `models/manifest.json` (SHA-256 and size).
+ONNX Runtime, a pinned FFmpeg LGPL shared build (with SHA-256 check), yt-dlp
+2026.10.26 and Deno 2.9.8 (both SHA-256 checked), the fixed-version WebView2
+runtime, the VC++ redistributable and the models. Models are verified against
+`models/manifest.json` (SHA-256 and size).
 
 Package:
 
@@ -51,10 +53,10 @@ dist/UniversalSTT-0.1.0-win64-portable.zip
 dist/SHA256SUMS
 ```
 
-The ZIP root contains `UniversalSTT.exe`, the DLLs, `ffmpeg.exe`,
-`models/`, `WebView2Runtime/`, `WebView2Loader.dll`, the VC DLLs,
-`assets/` (if the Dioxus build emits one), `LICENSE`,
-`NOTICE`, `README.md`, `version.txt` and `models/manifest.json`.
+The ZIP root contains `UniversalSTT.exe`, the DLLs, `ffmpeg.exe`, `ffprobe.exe`,
+`yt-dlp.exe`, `deno.exe`, `models/`, `WebView2Runtime/`, `WebView2Loader.dll`,
+the VC DLLs, `assets/` (if the Dioxus build emits one), `LICENSE`, `NOTICE`,
+`README.md`, `version.txt` and `models/manifest.json`.
 
 The release tag must match the `ustt-app` version in `Cargo.toml`; the CI
 workflow fails otherwise.
@@ -75,6 +77,8 @@ Manual checklist:
 - [ ] Run `UniversalSTT.exe` without administrator rights and without installing
       WebView2 or VC++ (both are inside the ZIP).
 - [ ] Drag an mp4, mkv, mp3, flac and wav into the window.
+- [ ] Paste or drop a direct media URL and one accessible YouTube/Yandex/VK
+      link; only one video downloads, with no playlist expansion.
 - [ ] Two to four speakers, rename, save, reopen from recents.
 - [ ] Video preview and transcript seek together.
 - [ ] Undo/redo, Ctrl+S, autosave.
@@ -86,7 +90,7 @@ Manual checklist:
 
 - Projects: `Documents\Universal STT\<slug>-<date>.ustt`
 - Settings and recents: `%APPDATA%\UniversalSTT`
-- No data is written next to the executable.
+- WebView2 cache: `WebView2Data\` next to the executable.
 
 ## CI
 

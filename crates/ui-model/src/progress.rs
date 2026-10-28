@@ -1,5 +1,6 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PhaseView {
+    Download,
     Probe,
     Decode,
     Proxy,

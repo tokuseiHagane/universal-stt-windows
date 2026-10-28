@@ -20,6 +20,7 @@ build it and use it.
 | Segment building and speaker assignment | ready |
 | CLI (`ustt-cli`) | ready |
 | Desktop UI (Dioxus + WebView2) | ready |
+| URL import (direct files, YouTube, Yandex, VK) | ready |
 | DOCX/PDF export, audio extraction | ready |
 | Portable ZIP and GitHub Actions release | ready (CI) |
 
@@ -133,10 +134,10 @@ dx build --platform desktop --release
 ```
 
 The portable ZIP contains the app, FFmpeg, ONNX Runtime, parakeet CPU/Vulkan
-libraries, models, the fixed-version WebView2 runtime and the app-local VC++
-DLLs. Extract and run: no installer, no separate WebView2/VC++ install. See
-`docs/BUILD-WINDOWS.md`; Windows acceptance under Wine/Proton is still a
-manual release gate.
+libraries, models, yt-dlp and Deno for URL imports, the fixed-version WebView2
+runtime and the app-local VC++ DLLs. Extract and run: no installer, no separate
+WebView2/VC++/Python/Node install. See `docs/BUILD-WINDOWS.md`; Windows
+acceptance under Wine/Proton is still a manual release gate.
 
 ## Build and test
 
@@ -190,6 +191,7 @@ own licenses:
 - **ONNX Runtime** — MIT.
 - **FFmpeg** — the shipped build is LGPL; FFmpeg runs as a separate
   executable, so this repository's MIT code is unaffected.
+- **yt-dlp** — Unlicense; **Deno** — MIT. Both are bundled for URL imports.
 - **Test audio** — LJSpeech (public domain) and the JFK sample from
   whisper.cpp (public domain). See `NOTICE`.
 

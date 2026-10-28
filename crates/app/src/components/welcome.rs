@@ -1,5 +1,5 @@
 use super::icons::FolderIcon;
-use crate::service::Service;
+use crate::service::{ImportInput, Service, parse_import_url};
 use dioxus::prelude::*;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -28,7 +28,7 @@ fn is_supported(path: &std::path::Path) -> bool {
 #[derive(Props, Clone, PartialEq)]
 pub struct WelcomeProps {
     pub lang: Lang,
-    pub on_start_import: EventHandler<(PathBuf, PathBuf)>,
+    pub on_start_import: EventHandler<(ImportInput, PathBuf)>,
     pub on_open_project: EventHandler<PathBuf>,
     pub on_demo: EventHandler<MediaKind>,
 }
@@ -39,16 +39,31 @@ pub fn Welcome(props: WelcomeProps) -> Element {
     let text = strings(props.lang);
     let recent = use_context::<Signal<Vec<ustt_core::RecentEntry>>>()();
     let mut dragging = use_signal(|| false);
+    let mut url_draft = use_signal(String::new);
+    let mut url_error = use_signal(|| None::<String>);
 
-    let start = move |path: PathBuf| {
+    let start = move |input: ImportInput| {
         #[cfg(not(target_arch = "wasm32"))]
-        let dir = crate::service::native::project_dir_for(
-            &path,
-            &crate::service::native::documents_dir(),
-        );
+        let dir = match &input {
+            ImportInput::File(path) => crate::service::native::project_dir_for(
+                path,
+                &crate::service::native::documents_dir(),
+            ),
+            ImportInput::Url(_) => crate::service::native::project_dir_for(
+                std::path::Path::new("URL import"),
+                &crate::service::native::documents_dir(),
+            ),
+        };
         #[cfg(target_arch = "wasm32")]
         let dir = PathBuf::from("demo.ustt");
-        props.on_start_import.call((path, dir));
+        props.on_start_import.call((input, dir));
+    };
+    let start_url = move |raw: String| match parse_import_url(&raw) {
+        Ok(url) => {
+            url_error.set(None);
+            start(ImportInput::Url(url));
+        }
+        Err(_) => url_error.set(Some(text.welcome_url_invalid.to_string())),
     };
 
     rsx! {
@@ -67,14 +82,21 @@ pub fn Welcome(props: WelcomeProps) -> Element {
                     ondrop: move |evt| {
                         evt.prevent_default();
                         dragging.set(false);
-                        let files: Vec<String> = evt
-                            .data_transfer()
+                        let transfer = evt.data_transfer();
+                        let files: Vec<String> = transfer
                             .files()
                             .into_iter()
                             .map(|file| file.path().to_string_lossy().into_owned())
                             .collect();
                         if let Some(path) = pick_dropped(&files) {
-                            start(path);
+                            start(ImportInput::File(path));
+                            return;
+                        }
+                        if let Some(raw) = transfer
+                            .get_as_text()
+                            .or_else(|| transfer.get_data("text/uri-list"))
+                        {
+                            start_url(raw);
                         }
                     },
                     div { class: "drop-icon", FolderIcon {} }
@@ -84,11 +106,31 @@ pub fn Welcome(props: WelcomeProps) -> Element {
                         class: "btn primary",
                         onclick: move |_| {
                             if let Some(path) = service.pick_media() {
-                                start(path);
+                                start(ImportInput::File(path));
                             }
                         },
                         "{text.welcome_browse}"
                     }
+                }
+                form {
+                    class: "url-import",
+                    onsubmit: move |evt| {
+                        evt.prevent_default();
+                        start_url(url_draft());
+                    },
+                    input {
+                        class: "url-input",
+                        "data-testid": "url-input",
+                        r#type: "url",
+                        placeholder: "{text.welcome_url_placeholder}",
+                        aria_label: "{text.welcome_url_placeholder}",
+                        value: url_draft(),
+                        oninput: move |evt| url_draft.set(evt.value()),
+                    }
+                    button { class: "btn", r#type: "submit", "data-testid": "url-submit", "{text.welcome_url_import}" }
+                }
+                if let Some(message) = url_error() {
+                    div { class: "url-error", role: "alert", "data-testid": "url-error", "{message}" }
                 }
                 if service.demo_available() {
                     div { class: "demo-actions",

@@ -10,6 +10,24 @@ pub mod mock;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod native;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ImportInput {
+    File(PathBuf),
+    Url(String),
+}
+
+pub fn parse_import_url(raw: &str) -> Result<String, String> {
+    let value = raw.trim();
+    if value.is_empty() || value.chars().any(char::is_whitespace) {
+        return Err("enter one HTTP(S) URL".into());
+    }
+    let parsed = url::Url::parse(value).map_err(|_| "enter one valid HTTP(S) URL".to_string())?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
+        return Err("only HTTP(S) URLs are supported".into());
+    }
+    Ok(parsed.into())
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MediaAsset {
     Audio,
@@ -99,7 +117,7 @@ pub trait Service: Send + Sync {
     fn push_recent(&self, entry: RecentEntry);
     fn pick_media(&self) -> Option<PathBuf>;
     fn pick_project(&self) -> Option<PathBuf>;
-    fn import(&self, input: PathBuf, project_dir: PathBuf) -> ImportHandle;
+    fn import(&self, input: ImportInput, project_dir: PathBuf) -> ImportHandle;
     fn open(&self, dir: &Path) -> Result<(StoreHandle, Project), String>;
     fn save(&self, store: &StoreHandle, project: &mut Project) -> Result<(), String>;
     fn save_as(
@@ -141,6 +159,27 @@ mod tests {
             audio_format: ustt_core::AudioFormat::Wav,
             segments,
             out_dir: PathBuf::from("/tmp"),
+        }
+    }
+
+    #[test]
+    fn import_url_validation_accepts_only_one_http_url() {
+        assert_eq!(
+            parse_import_url("  https://example.test/clip.mp4  ").unwrap(),
+            "https://example.test/clip.mp4"
+        );
+        assert_eq!(
+            parse_import_url("http://localhost:8080/a.wav").unwrap(),
+            "http://localhost:8080/a.wav"
+        );
+        for invalid in [
+            "",
+            "ftp://example.test/a.wav",
+            "javascript:alert(1)",
+            "https://example.test/a https://example.test/b",
+            "https://",
+        ] {
+            assert!(parse_import_url(invalid).is_err(), "accepted {invalid}");
         }
     }
 

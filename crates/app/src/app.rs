@@ -3,7 +3,7 @@ use crate::components::processing::Processing;
 use crate::components::project::{ProjectSession, ProjectView};
 use crate::components::settings::{SettingsScreen, load_project_error};
 use crate::components::welcome::Welcome;
-use crate::service::{ImportEvent, ImportHandle};
+use crate::service::{ImportEvent, ImportHandle, ImportInput};
 use dioxus::prelude::*;
 use ustt_core::{MediaKind, RecentEntry};
 use ustt_ui_model::{Lang, Playback, ProgressView, strings};
@@ -270,10 +270,11 @@ pub fn App() -> Element {
                             lang: lang(),
                             on_start_import: {
                                 let service = service.clone();
-                                move |(input, dir): (std::path::PathBuf, std::path::PathBuf)| {
-                                pending_name.set(
-                                    input.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
-                                );
+                                move |(input, dir): (ImportInput, std::path::PathBuf)| {
+                                pending_name.set(match &input {
+                                    ImportInput::File(path) => path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+                                    ImportInput::Url(url) => url.clone(),
+                                });
                                 pending_dir.set(Some(dir.clone()));
                                 progress.set(None);
                                 pending.set(Some(service.import(input, dir)));

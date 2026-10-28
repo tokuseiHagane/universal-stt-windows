@@ -21,6 +21,7 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
+url = "2"
 ustt-core = { path = "../core" }
 ustt-ui-model = { path = "../ui-model" }
 

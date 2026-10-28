@@ -21,6 +21,8 @@ REQUIRED = [
     "onnxruntime.dll",
     "ffmpeg.exe",
     "ffprobe.exe",
+    "yt-dlp.exe",
+    "deno.exe",
     "WebView2Loader.dll",
     "msvcp140.dll",
     "msvcp140_1.dll",

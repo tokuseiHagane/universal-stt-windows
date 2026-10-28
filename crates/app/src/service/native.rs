@@ -1,6 +1,6 @@
 use super::{
-    ExportEvent, ExportJob, ExportRequest, ImportEvent, ImportHandle, MediaAsset, Service,
-    StoreHandle, media,
+    ExportEvent, ExportJob, ExportRequest, ImportEvent, ImportHandle, ImportInput, MediaAsset,
+    Service, StoreHandle, media,
 };
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
@@ -113,7 +113,7 @@ impl Service for NativeService {
         rfd::FileDialog::new().pick_folder()
     }
 
-    fn import(&self, input: PathBuf, project_dir: PathBuf) -> ImportHandle {
+    fn import(&self, input: ImportInput, project_dir: PathBuf) -> ImportHandle {
         let (tx, rx) = mpsc::channel();
         let cancel = Arc::new(AtomicBool::new(false));
         let flag = cancel.clone();
@@ -130,8 +130,12 @@ impl Service for NativeService {
                     return;
                 }
             };
+            let input = match input {
+                ImportInput::File(path) => ustt_pipeline::import::ImportSource::File(path),
+                ImportInput::Url(url) => ustt_pipeline::import::ImportSource::Url(url),
+            };
             let request = ImportRequest {
-                input: ustt_pipeline::import::ImportSource::File(input),
+                input,
                 project_dir,
                 models,
                 backend: backend.selected,
@@ -142,7 +146,7 @@ impl Service for NativeService {
             let outcome = run_import(&request, &flag, &mut |progress| {
                 let _ = sender.send(ImportEvent::Progress(ProgressView {
                     phase: match progress.phase {
-                        ustt_pipeline::progress::Phase::Download => PhaseView::Probe,
+                        ustt_pipeline::progress::Phase::Download => PhaseView::Download,
                         ustt_pipeline::progress::Phase::Probe => PhaseView::Probe,
                         ustt_pipeline::progress::Phase::Decode => PhaseView::Decode,
                         ustt_pipeline::progress::Phase::Proxy => PhaseView::Proxy,

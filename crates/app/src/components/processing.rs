@@ -4,6 +4,7 @@ use ustt_ui_model::{Lang, PhaseView, ProgressView, strings};
 pub fn phase_label(phase: PhaseView, lang: Lang) -> &'static str {
     let text = strings(lang);
     match phase {
+        PhaseView::Download => text.phase_download,
         PhaseView::Probe => text.phase_probe,
         PhaseView::Decode => text.phase_decode,
         PhaseView::Proxy => text.phase_proxy,
@@ -113,6 +114,7 @@ mod tests {
     #[test]
     fn phase_label_covers_every_phase() {
         for phase in [
+            PhaseView::Download,
             PhaseView::Probe,
             PhaseView::Decode,
             PhaseView::Proxy,
