@@ -4,11 +4,11 @@ mod tools;
 pub use progress::DownloadProgress;
 pub use tools::DownloadTools;
 
+use std::borrow::Borrow;
 use std::ffi::OsString;
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
-use std::borrow::Borrow;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::thread;

@@ -53,7 +53,10 @@ fn remote_progress_reserves_download_share() {
     assert!((download.fraction - 0.125).abs() < 1e-6);
     let probe = Progress::new_scaled(Phase::Probe, 0.5, "probing", 0.25);
     assert!((probe.fraction - 0.2575).abs() < 1e-6);
-    assert_eq!(Progress::new_scaled(Phase::Done, 1.0, "done", 0.25).fraction, 1.0);
+    assert_eq!(
+        Progress::new_scaled(Phase::Done, 1.0, "done", 0.25).fraction,
+        1.0
+    );
     assert_eq!(
         Progress::new_scaled(Phase::Diarize, 0.5, "diarizing", 0.0).fraction,
         Progress::new(Phase::Diarize, 0.5, "diarizing").fraction

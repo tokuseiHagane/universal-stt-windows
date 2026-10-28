@@ -9,7 +9,7 @@ use ustt_asr::{AsrEngine, AsrError, ParakeetLib, VadEngine, transcribe_chunks_ca
 use ustt_core::{MediaKind, Project, SourceRef, speakers_from_diarization};
 use ustt_core::{ProjectStore, StoreError};
 use ustt_diarize::{DiarizeError, WhoModel};
-use ustt_download::{DownloadTools, DownloadedMedia, DownloadError, download as download_url};
+use ustt_download::{DownloadError, DownloadTools, DownloadedMedia, download as download_url};
 use ustt_media::{MediaError, Tools};
 use ustt_media::{
     decode_wav16k, make_proxy, probe, read_wav_mono16k_range, wav_mono16k_samples,
@@ -140,21 +140,25 @@ pub fn run_import(
                 download_weight,
             ));
             let tools = DownloadTools::locate(None)?;
-            let downloaded = download_url(&tools, url, cancel, &mut |progress: ustt_download::DownloadProgress| {
-                let detail = match progress.total_bytes {
-                    Some(total) => format!(
-                        "downloaded {} / {} bytes",
-                        progress.downloaded_bytes, total
-                    ),
-                    None => format!("downloaded {} bytes", progress.downloaded_bytes),
-                };
-                emit(Progress::new_scaled(
-                    Phase::Download,
-                    progress.fraction.unwrap_or(0.0),
-                    detail,
-                    download_weight,
-                ));
-            })
+            let downloaded = download_url(
+                &tools,
+                url,
+                cancel,
+                &mut |progress: ustt_download::DownloadProgress| {
+                    let detail = match progress.total_bytes {
+                        Some(total) => {
+                            format!("downloaded {} / {} bytes", progress.downloaded_bytes, total)
+                        }
+                        None => format!("downloaded {} bytes", progress.downloaded_bytes),
+                    };
+                    emit(Progress::new_scaled(
+                        Phase::Download,
+                        progress.fraction.unwrap_or(0.0),
+                        detail,
+                        download_weight,
+                    ));
+                },
+            )
             .map_err(|error| match error {
                 DownloadError::Cancelled => PipelineError::Cancelled,
                 other => other.into(),
@@ -186,27 +190,38 @@ pub fn run_import(
     };
     let title = remote_title
         .filter(|title| !title.trim().is_empty())
-        .or_else(|| {
-            input
-                .file_stem()
-                .map(|s| s.to_string_lossy().into_owned())
-        })
+        .or_else(|| input.file_stem().map(|s| s.to_string_lossy().into_owned()))
         .unwrap_or_else(|| "Recording".into());
     let mut source = SourceRef::new(&input)?;
     source.origin_url = origin_url;
     let (store, mut project) = ProjectStore::create(&partial, &title, source, kind, info.duration)?;
     let media_dir = store.media_dir();
-    emit(Progress::new_scaled(Phase::Probe, 1.0, "probed", download_weight));
+    emit(Progress::new_scaled(
+        Phase::Probe,
+        1.0,
+        "probed",
+        download_weight,
+    ));
 
     let wav = media_dir.join("audio16k.wav");
-    emit(Progress::new_scaled(Phase::Decode, 0.2, "decoding", download_weight));
+    emit(Progress::new_scaled(
+        Phase::Decode,
+        0.2,
+        "decoding",
+        download_weight,
+    ));
     decode_wav16k(&tools, &input, &wav)?;
     let waveform = waveform_from_wav(&wav, 20)?;
     std::fs::write(media_dir.join("waveform.bin"), waveform.to_bytes())?;
     let total_samples = wav_mono16k_samples(&wav)?;
     let duration = info.duration.max(total_samples as f64 / 16_000.0);
     project.duration = duration;
-    emit(Progress::new_scaled(Phase::Decode, 1.0, "decoded", download_weight));
+    emit(Progress::new_scaled(
+        Phase::Decode,
+        1.0,
+        "decoded",
+        download_weight,
+    ));
     if cancel.load(Ordering::Relaxed) {
         return Err(PipelineError::Cancelled);
     }
@@ -219,7 +234,12 @@ pub fn run_import(
             let stem = ustt_core::slugify(&title);
             scope.spawn(move || make_proxy(tools, input, media_dir, &stem, kind))
         });
-        emit(Progress::new_scaled(Phase::Proxy, 0.1, "preparing playback", download_weight));
+        emit(Progress::new_scaled(
+            Phase::Proxy,
+            0.1,
+            "preparing playback",
+            download_weight,
+        ));
         let mut who = WhoModel::load(&req.models.who_dir)?;
         let diarization = who
             .diarize_stream(
@@ -229,7 +249,14 @@ pub fn run_import(
                         .map_err(|e| DiarizeError::Model(e.to_string()))
                 },
                 Some(cancel),
-                &mut |fraction| emit(Progress::new_scaled(Phase::Diarize, fraction, "diarizing", download_weight)),
+                &mut |fraction| {
+                    emit(Progress::new_scaled(
+                        Phase::Diarize,
+                        fraction,
+                        "diarizing",
+                        download_weight,
+                    ))
+                },
             )
             .map_err(|e| match e {
                 DiarizeError::Cancelled => PipelineError::Cancelled,
@@ -241,15 +268,30 @@ pub fn run_import(
                 Ok(Ok(info)) => proxy = Some(info),
                 Ok(Err(error)) => {
                     // A proxy is optional: the transcript must still be usable.
-                    emit(Progress::new_scaled(Phase::Proxy, 1.0, format!("proxy unavailable: {error}"), download_weight));
+                    emit(Progress::new_scaled(
+                        Phase::Proxy,
+                        1.0,
+                        format!("proxy unavailable: {error}"),
+                        download_weight,
+                    ));
                 }
                 Err(_) => {
-                    emit(Progress::new_scaled(Phase::Proxy, 1.0, "proxy worker failed", download_weight));
+                    emit(Progress::new_scaled(
+                        Phase::Proxy,
+                        1.0,
+                        "proxy worker failed",
+                        download_weight,
+                    ));
                 }
             }
         }
         if let Some(proxy) = proxy {
-            emit(Progress::new_scaled(Phase::Proxy, 1.0, format!("proxy: {}", proxy.codec), download_weight));
+            emit(Progress::new_scaled(
+                Phase::Proxy,
+                1.0,
+                format!("proxy: {}", proxy.codec),
+                download_weight,
+            ));
         }
         Ok::<_, PipelineError>(diarization)
     })?;
@@ -286,7 +328,12 @@ pub fn run_import(
         return Err(PipelineError::Cancelled);
     }
 
-    emit(Progress::new_scaled(Phase::Merge, 0.3, "merging", download_weight));
+    emit(Progress::new_scaled(
+        Phase::Merge,
+        0.3,
+        "merging",
+        download_weight,
+    ));
     project.speakers = speakers_from_diarization(&diarization);
     let ids: Vec<_> = project.speakers.iter().map(|s| s.id).collect();
     project.segments = build_segments(&transcript.words, &diarization.turns, &ids, duration);
@@ -294,14 +341,24 @@ pub fn run_import(
     project.duration = duration;
     project.language = transcript.language.clone();
     store.save(&mut project)?;
-    emit(Progress::new_scaled(Phase::Merge, 1.0, "merged", download_weight));
+    emit(Progress::new_scaled(
+        Phase::Merge,
+        1.0,
+        "merged",
+        download_weight,
+    ));
 
     if req.project_dir.exists() {
         return Err(PipelineError::Exists(req.project_dir.clone()));
     }
     std::fs::rename(&partial, &req.project_dir)?;
     guard.keep = true;
-    emit(Progress::new_scaled(Phase::Done, 1.0, "done", download_weight));
+    emit(Progress::new_scaled(
+        Phase::Done,
+        1.0,
+        "done",
+        download_weight,
+    ));
     Ok(project)
 }
 
