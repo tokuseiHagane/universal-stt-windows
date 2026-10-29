@@ -16,6 +16,8 @@ type FreeStringFn = unsafe extern "C" fn(*mut c_char);
 type LoadErrorFn = unsafe extern "C" fn() -> *const c_char;
 type LastErrorFn = unsafe extern "C" fn(*mut c_void) -> *const c_char;
 type TranscribeJsonFn = unsafe extern "C" fn(*mut c_void, *const c_char, c_int) -> *mut c_char;
+type TranscribePcmBatchJsonFn =
+    unsafe extern "C" fn(*mut c_void, *const f32, *const c_int, c_int, c_int, c_int) -> *mut c_char;
 type VadJsonFn = unsafe extern "C" fn(*mut c_void, *const c_char, *const c_char) -> *mut c_char;
 type ModelKindFn = unsafe extern "C" fn(*const c_void) -> c_int;
 type AbiFn = unsafe extern "C" fn() -> c_int;
@@ -44,6 +46,7 @@ impl ParakeetLib {
         lib.symbol::<LoadErrorFn>(b"parakeet_capi_load_error\0")?;
         lib.symbol::<LastErrorFn>(b"parakeet_capi_last_error\0")?;
         lib.symbol::<TranscribeJsonFn>(b"parakeet_capi_transcribe_path_json\0")?;
+        lib.symbol::<TranscribePcmBatchJsonFn>(b"parakeet_capi_transcribe_pcm_batch_json\0")?;
         lib.symbol::<ModelKindFn>(b"parakeet_capi_model_kind\0")?;
         Ok(lib)
     }
@@ -142,6 +145,20 @@ impl ParakeetLib {
             .ok_or_else(|| AsrError::Model(self.last_error(ctx)))
     }
 
+    pub(crate) fn transcribe_pcm_json(
+        &self,
+        ctx: *mut c_void,
+        samples: &[f32],
+    ) -> Result<String, AsrError> {
+        let count = c_int::try_from(samples.len())
+            .map_err(|_| AsrError::Model("PCM chunk is too large".into()))?;
+        let call: Symbol<TranscribePcmBatchJsonFn> =
+            self.symbol(b"parakeet_capi_transcribe_pcm_batch_json\0")?;
+        let out = unsafe { call(ctx, samples.as_ptr(), &count, 1, 16_000, 0) };
+        self.take_string(out)
+            .ok_or_else(|| AsrError::Model(self.last_error(ctx)))
+    }
+
     pub(crate) fn vad_json(
         &self,
         ctx: *mut c_void,
@@ -179,6 +196,29 @@ impl AsrEngine {
         let text = self.lib.transcribe_json(self.ctx.0, wav)?;
         Ok(serde_json::from_str(&text)?)
     }
+
+    pub fn transcribe_pcm(&mut self, samples: &[f32]) -> Result<AsrJson, AsrError> {
+        if samples.is_empty() {
+            return Ok(AsrJson {
+                text: String::new(),
+                language: None,
+                words: Vec::new(),
+            });
+        }
+        let text = self.lib.transcribe_pcm_json(self.ctx.0, samples)?;
+        parse_pcm_batch(&text)
+    }
+}
+
+fn parse_pcm_batch(text: &str) -> Result<AsrJson, AsrError> {
+    let documents: Vec<AsrJson> = serde_json::from_str(text)?;
+    if documents.len() != 1 {
+        return Err(AsrError::Model(format!(
+            "parakeet returned {} PCM batch documents, expected 1",
+            documents.len()
+        )));
+    }
+    Ok(documents.into_iter().next().expect("length checked"))
 }
 
 impl Drop for AsrEngine {
@@ -209,5 +249,22 @@ impl VadEngine {
 impl Drop for VadEngine {
     fn drop(&mut self) {
         self.lib.free(self.ctx.0);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_pcm_batch;
+
+    #[test]
+    fn pcm_batch_parses_exactly_one_transcript() {
+        let json = parse_pcm_batch(
+            r#"[{"text":"hello","language":"en","words":[{"w":"hello","start":0.0,"end":0.4,"conf":0.9}]}]"#,
+        )
+        .unwrap();
+        assert_eq!(json.text, "hello");
+        assert_eq!(json.words.len(), 1);
+        assert!(parse_pcm_batch("[]").is_err());
+        assert!(parse_pcm_batch(r#"[{"text":"a"},{"text":"b"}]"#).is_err());
     }
 }

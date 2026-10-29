@@ -6704,6 +6704,7 @@ dependencies = [
  "chrono",
  "console_error_panic_hook",
  "dioxus",
+ "dioxus-html",
  "dirs",
  "futures-timer",
  "gloo-timers 0.3.0",

@@ -1,6 +1,7 @@
 use super::icons::FolderIcon;
 use crate::service::{ImportInput, Service, parse_import_url};
 use dioxus::prelude::*;
+use dioxus_html::HasFileData;
 use std::path::PathBuf;
 use std::sync::Arc;
 use ustt_core::MediaKind;
@@ -83,7 +84,8 @@ pub fn Welcome(props: WelcomeProps) -> Element {
                         evt.prevent_default();
                         dragging.set(false);
                         let transfer = evt.data_transfer();
-                        let files: Vec<String> = transfer
+                        // Native OS paths live on DragData; DataTransfer contains web drop data.
+                        let files: Vec<String> = evt
                             .files()
                             .into_iter()
                             .map(|file| file.path().to_string_lossy().into_owned())

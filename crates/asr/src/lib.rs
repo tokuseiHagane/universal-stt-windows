@@ -55,14 +55,7 @@ pub fn transcribe_chunks_cancellable(
         let count = last.saturating_sub(first.min(last));
         let slice = ustt_media::read_wav_mono16k_range(wav, first, count)
             .map_err(|e| AsrError::Model(e.to_string()))?;
-        let file = tempfile::Builder::new()
-            .prefix("ustt-chunk-")
-            .suffix(".wav")
-            .tempfile()?;
-        ustt_media::write_wav_mono16k(file.path(), &slice)
-            .map_err(|e| AsrError::Model(e.to_string()))?;
-        let json = engine.transcribe_wav(file.path())?;
-        file.close().ok();
+        let json = engine.transcribe_pcm(&slice)?;
         out.push((range, json));
         done += (range.end - range.start).max(0.0);
         progress(if total > 0.0 {
